@@ -1,0 +1,86 @@
+[project]
+name = "moxi-comms"
+version = "0.1.0"
+description = "Messages between coding-agent sessions, delivered into their turns."
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "CodeManEthan", email = "codemanethan@gmail.com" }]
+keywords = ["claude-code", "codex", "opencode", "agents", "messaging", "multi-agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications",
+    "Topic :: Software Development",
+]
+# turns is required: it is the one way into a harness session (a Claude session's
+# delivery, its Stop hold and its context all go through it).
+dependencies = ["moxi>=0.1,<0.2", "moxi-turns>=0.1,<0.2"]
+
+[project.optional-dependencies]
+# `moxi-comms-codex` launches each Codex session through turns' Codex host, whose
+# app-server link needs `websockets`: turns' own `codex` extra, which this one installs.
+codex = ["moxi-turns[codex]>=0.1,<0.2"]
+# The cold-send hold reads each agent's prompt cache through the cache module, an
+# optional Moxi module comms reaches only through moxi.modules.load("cache").
+cache = ["moxi-cache>=0.1,<0.2"]
+
+[project.urls]
+Homepage = "https://github.com/moxihq/comms"
+Repository = "https://github.com/moxihq/comms"
+Issues = "https://github.com/moxihq/comms/issues"
+
+# Every Moxi distribution declares the umbrella, so a plain install puts `moxi` on PATH.
+# The module's own commands run as `moxi comms <verb>`; there is no bare `comms` script.
+# The internal entry points below are each named moxi-comms-<part>.
+[project.scripts]
+moxi = "moxi.cli:main"
+moxi-comms-daemon = "moxi_comms.daemon:main"
+moxi-comms-shim = "moxi_comms.adapters.claude_shim:main"
+moxi-comms-claude = "moxi_comms.adapters.session:main"
+moxi-comms-codex = "moxi_comms.adapters.codex:main"
+moxi-comms-opencode = "moxi_comms.adapters.opencode:main"
+moxi-comms-provision = "moxi_comms.provision:main"
+
+# The module's one announcement, read by moxi.modules.
+[project.entry-points."moxi.modules"]
+comms = "moxi_comms.module"
+
+# comms' listener: turns asks it at a session's start and at each prompt for the context
+# comms adds (layer one, the roster and its deltas).
+[project.entry-points."moxi.turns.listeners"]
+comms = "moxi_comms.listeners"
+
+# The adapter kinds a binding may register as. comms declares its own here, as any module
+# declares one (see moxi_comms/kinds.py).
+[project.entry-points."moxi.comms.kinds"]
+claude-shim = "moxi_comms.kinds:CLAUDE_SHIM"
+codex = "moxi_comms.kinds:CODEX"
+opencode = "moxi_comms.kinds:OPENCODE"
+send-only = "moxi_comms.kinds:SEND_ONLY"
+
+[dependency-groups]
+# The suite runs the Codex adapter over turns' real Codex host against a stub app-server,
+# and exercises the cache seam, so the dev environment carries `websockets` (the one
+# dependency of turns' `codex` extra) and `moxi-cache` beside pytest.
+dev = ["pytest", "websockets>=17.0.1", "moxi-cache>=0.1,<0.2"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The package directory whole, so settings.toml (the config schema) ships in the wheel.
+packages = ["src/moxi_comms"]
+
+[tool.hatch.build.targets.sdist]
+# Paths that are never published stay out of a source distribution built from any branch.
+exclude = ["/CLAUDE.md", "/.public-paths", "/.residue-allow"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

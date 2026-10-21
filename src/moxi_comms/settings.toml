@@ -1,0 +1,140 @@
+# The schema of comms' one config file, CONFIG/comms/config.toml, read through
+# moxi.config. `moxi config comms` shows every key; `moxi config comms init` writes the
+# file with each key commented out at its default.
+#
+# Nothing here is a secret: the file is refused when a key looks like one
+# (moxi_comms.config.refuse_secrets). Credentials live in the token store.
+
+[backend]
+type = "enum"
+values = ["local", "mock"]
+default = "local"
+doc = "Which record backend: local (this box's SQLite record) or mock (a JSON test double)."
+read = "start"
+env = "MOXI_COMMS_GATEWAY"
+
+[local.record]
+type = "path"
+default = ""
+doc = "The local record's file; empty means record.db in comms' state directory."
+read = "start"
+env = "MOXI_COMMS_LOCAL_RECORD"
+
+[local.retain_days]
+type = "int"
+default = 90
+doc = "How many days the local record keeps a message body; 0 keeps every one."
+read = "start"
+env = "MOXI_COMMS_LOCAL_RETAIN_DAYS"
+
+[threads.reply_cap]
+type = "int"
+default = 8
+doc = "An open thread's reply cap when its opener set none; 1 or more."
+read = "start"
+
+[secrets.chain]
+type = "list"
+default = ["env", "store"]
+doc = "Where a credential is looked for, in order: env (MOXI_COMMS_SECRET_*), store."
+read = "start"
+
+[secrets.store]
+type = "path"
+default = ""
+doc = "The token store's directory; empty means tokens/ in comms' state directory."
+read = "start"
+env = "MOXI_COMMS_TOKEN_STORE"
+
+[secrets.roles]
+type = "list"
+default = []
+doc = "Role holders this box adds to comms' own; each keys the token store by its name."
+read = "start"
+
+[policy.cache_callers]
+type = "list"
+default = ["operator"]
+doc = "The identities `moxi comms cache` answers, by qualified name."
+read = "start"
+
+[policy.labels]
+type = "table"
+default = {}
+doc = "Send-only identities by qualified name, each mapped to the words its refusal uses."
+read = "start"
+
+[provision.slots]
+type = "int"
+default = 6
+doc = "How many slots a first start provisions in an empty directory; 1 or more."
+read = "start"
+
+[provision.operator]
+type = "string"
+default = "operator"
+doc = "The human's identity name, provisioned at first start."
+read = "start"
+
+[replay.messages]
+type = "int"
+default = 50
+doc = "A reader's catch-up bound with no cursor: at most this many messages; 1 or more."
+read = "use"
+
+[replay.hours]
+type = "int"
+default = 24
+doc = "A reader's catch-up bound with no cursor: nothing older than this many hours."
+read = "use"
+
+[cache.required]
+type = "bool"
+default = false
+doc = "Refuse to start the daemon when the cache module is absent or broken, so the cold-send hold cannot switch off without a word."
+read = "start"
+
+[block]
+type = "bool"
+default = false
+doc = "Hold every delivery: while true, mail is recorded and nothing is handed to a session."
+read = "use"
+
+[codex.defaults]
+type = "table"
+default = {}
+doc = "Defaults every Codex roster row takes unless it names its own."
+read = "start"
+
+[codex.agents]
+type = "table"
+default = {}
+doc = "The Codex roster: one table per identity, [codex.agents.\"name@scope\"]."
+read = "start"
+
+[opencode.defaults]
+type = "table"
+default = {}
+doc = "Defaults every OpenCode roster row takes unless it names its own."
+read = "start"
+
+[opencode.agents]
+type = "table"
+default = {}
+doc = "The OpenCode roster: one table per identity, [opencode.agents.\"name@scope\"]."
+read = "start"
+
+# Keys an earlier comms read, kept declared so a file that still sets one is told what
+# to do rather than refused as unknown.
+
+[claude.channel]
+retired = "remove it: comms passes Claude Code no channel; turns' plugin delivers"
+
+[policy.voice_companion]
+retired = "remove it: reply enforcement exempts no identity"
+
+[policy.never_held]
+retired = "remove it: no sender is exempt from the cold-cache hold"
+
+[policy.next_turn_refused]
+retired = "remove it: no name refuses a next-turn send"
