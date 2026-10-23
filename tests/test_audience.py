@@ -144,7 +144,7 @@ def test_reply_table_row_5_a_different_audience_is_refused(rig):
     """a replier may not change the ask's audience. The refusal names the ask's
     audience, says a reply cannot change it, and names the cure: a new send."""
     original = ask(rig, audience="operator")
-    code, out = rig.cli(["reply", original.id, "answer.", "--audience", "thinker"],
+    code, out = rig.cli(["reply", original.id, "answer.", "--audience", "archivist"],
                         **REVIEWER)
     assert code == 2
     assert "'operator'" in out and "cannot change" in out
@@ -168,7 +168,7 @@ def test_send_reply_to_gets_the_same_table(rig):
     # refuse
     before = len(posted(rig))
     code, out = rig.cli(["send", "--new-name", "planner@proj-a", "c.", "--reply-to", marked.id,
-                         "--audience", "thinker"], **REVIEWER)
+                         "--audience", "archivist"], **REVIEWER)
     assert code == 2 and "cannot change" in out
     assert len(posted(rig)) == before
 
@@ -272,8 +272,8 @@ def test_a_present_audience_is_never_overridden(rig):
     daemon polices no line zero."""
     planner = rig.shim(**PLANNER)
     original = ask(rig, audience="operator")
-    reply = reply_to_planner(rig, original.id, audience="thinker")
-    assert delivered(planner, reply.id) == ("thinker", "written")
+    reply = reply_to_planner(rig, original.id, audience="archivist")
+    assert delivered(planner, reply.id) == ("archivist", "written")
 
 
 def test_a_reply_to_a_referent_the_daemon_never_indexed_is_unknown(rig, caplog):
@@ -295,9 +295,9 @@ def test_a_reply_to_an_indexed_ask_with_no_audience_carries_none(rig):
 
 
 def test_register_replay_feeds_the_index_before_it_delivers(rig):
-    """Register replays the record past the cursor, then releases the queue (§3.3.4,
-    §3.5); both call `_deliver`, so the walk must index what it parses first. The reply
-    to the unbound planner is a queue row (§3.3.2), handed by the register's release.
+    """Register replays the record past the cursor, then releases the queue;
+    both call `_deliver`, so the walk must index what it parses first. The reply
+    to the unbound planner is a queue row, handed by the register's release.
     The index is emptied here to prove the ask was learned from the register's own walk."""
     original = ask(rig, audience="operator")
     reply = reply_to_planner(rig, original.id)
@@ -580,11 +580,11 @@ def test_register_replay_does_not_overwrite_a_known_inherited_value(rig):
     reply re-parses the reply without the ask, and must keep what the index holds."""
     original, reply = _inherited_pair_whose_ask_aged_out(rig)
     cursors.advance("reviewer@proj-a", original.id)
-    marker = ask(rig, text="after the reply")       # a queue row for reviewer (§3.3.2)
+    marker = ask(rig, text="after the reply")       # a queue row for reviewer
     assert wait_until(lambda: marker.id in queued(rig.daemon, "reviewer@proj-a"))
     reviewer = rig.shim(**REVIEWER)
     payload = next(p for p in wait_for_queue(reviewer, 1) if p["message_id"] == marker.id)
-    # Register replays past the cursor first, then releases the row (§3.5): the marker's
+    # Register replays past the cursor first, then releases the row: the marker's
     # release says the replay already walked past the reply
     assert payload["backlog"] is False and payload["held"] is True, \
         "the register released the row after its replay walked past the reply"

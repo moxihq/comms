@@ -5,9 +5,8 @@ through and a break staying loud, the KEY the env step looks under, the holder t
 step is keyed by, the one sentence an agent reads when nothing holds the secret, and the
 config that declares all of it.
 
-Moxi's comms has two steps, `env` and `store` (design §7.2). The Bitwarden step is the
-fleet add-on's, and no part of this package names it: a chain that asks for it is
-refused at config load, with the steps there are.
+Moxi's comms has two steps, `env` and `store`, and no other: a chain that asks for
+another is refused at config load, with the steps there are.
 """
 
 from __future__ import annotations
@@ -51,13 +50,13 @@ def test_env_beats_store_and_a_miss_falls_through_to_the_next(tmp_path):
     assert reordered.get(SECRET_ID, owner=OWNER)["value"] == "FROM-THE-STORE"
 
 
-def test_the_env_step_looks_under_the_key_the_design_states(tmp_path):
+def test_the_env_step_looks_under_the_stated_key(tmp_path):
     """The env step: `MOXI_COMMS_SECRET_<KEY>`, the id upper-cased with every run of
     non-alphanumerics folded to one underscore. Stated in `env_key` and pinned here, so a
     box's config and its shell agree about the name."""
     assert secrets.env_key(SECRET_ID) == "MOXI_COMMS_SECRET_COMMS_SLOT_1_NAMES"
     assert secrets.env_key("ANTHROPIC_API_KEY") == "MOXI_COMMS_SECRET_ANTHROPIC_API_KEY"
-    assert secrets.env_key("9bd448ec-0d1b") == "MOXI_COMMS_SECRET_9BD448EC_0D1B"
+    assert secrets.env_key("1a2b3c4d-5e6f") == "MOXI_COMMS_SECRET_1A2B3C4D_5E6F"
 
     chain = secrets.build(["env"], env={"MOXI_COMMS_SECRET_ANTHROPIC_API_KEY": "sk-x"})
     got = chain.get("ANTHROPIC_API_KEY")
@@ -124,17 +123,13 @@ def test_an_env_only_chain_says_nothing_beyond_its_steps_was_tried():
     assert "token store" not in str(e.value)
 
 
-# ------------------------------------------------------------- no Bitwarden step here
+# --------------------------------------------------------- the steps are env and store
 
-def test_the_package_has_no_bitwarden_step():
-    """The bws step is the fleet add-on's (§7.3): no module, no step name, no constant."""
+def test_the_steps_are_exactly_env_and_store():
+    """The package has two steps, `env` and `store`; a chain naming any other is refused."""
     assert secrets.STEPS == ("env", "store")
-    for gone in ("STEP_BWS", "BwsResolver", "for_bws", "STANDALONE_CHAIN"):
-        assert not hasattr(secrets, gone), gone
-    with pytest.raises(ImportError):
-        __import__("moxi_comms.bws")
-    with pytest.raises(secrets.SecretError, match="unknown secret resolver 'bws'"):
-        secrets.build(["env", "store", "bws"])
+    with pytest.raises(secrets.SecretError, match="unknown secret resolver 'vault'"):
+        secrets.build(["env", "store", "vault"])
 
 
 CHILD_DEFAULT = """
@@ -148,15 +143,13 @@ assert list(cfg.secrets.chain) == ["env", "store"], cfg.secrets.chain
 got = secrets.from_config(cfg, env={}, store=store_root).get(
     secret_id, owner=tokens.owner_for_slot(1))
 assert got == {"value": "STORED-TOKEN", "note": ""}, got
-assert sorted(m for m in sys.modules if m.endswith("bws")) == []
 print("ok")
 """
 
 
 def test_a_box_with_no_table_resolves_env_then_store_in_a_fresh_process(tmp_path):
     """In a fresh interpreter under the test's tmp roots: a box with no config file
-    loads its defaults, builds `env, store` and resolves a real credential, and no
-    module named for Bitwarden enters the process."""
+    loads its defaults, builds `env, store` and resolves a real credential."""
     TokenStore(tmp_path / "tokens").write_secret(OWNER, SECRET_ID, "STORED-TOKEN")
     out = subprocess.run([sys.executable, "-c", CHILD_DEFAULT, str(tmp_path / "tokens"),
                           SECRET_ID], capture_output=True, text=True, timeout=60)
@@ -180,8 +173,8 @@ def test_the_chain_is_declared_in_the_config_and_defaults_to_env_then_store():
 
 def test_config_refuses_a_step_name_that_is_not_a_resolver():
     """A typo fails the box's first read of its own config, not the first send of the
-    day; so does a chain that still names the fleet's Bitwarden step."""
-    for step in ("vault", "bws"):
+    day; so does a step this package does not have."""
+    for step in ("vault", "keyring"):
         write_config(None, f'[secrets]\nchain = ["env", "{step}"]\n')
         with pytest.raises(config.ConfigError) as e:
             config.load()

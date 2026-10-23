@@ -17,16 +17,16 @@ from moxi_comms.config import ConfigError
 #: One request line exactly as OpenCode 1.18.34 wrote it with `--print-logs
 #: --log-level INFO`. The line is a log format, not an API: a release that changes it
 #: fails here before the model watch quietly stops seeing requests.
-MEASURED = ("timestamp=2026-10-05T00:38:30.750Z level=INFO run=03b5ab5b message=stream "
+MEASURED = ("timestamp=2026-10-05T00:38:30.750Z level=INFO run=0a1b2c3d message=stream "
             "providerID=ollama modelID=qwen3.5-4b-b9-32k "
-            "session.id=ses_ef68089adffehBzz1VuUbNQtjx small=true agent=title "
+            "session.id=ses_0123456789abcdefABCDEFGHIJ small=true agent=title "
             "mode=primary\n")
 
 
 def test_the_request_line_measured_on_1_18_34_parses():
     assert parse_stream_line(MEASURED) == {
         "provider": "ollama", "model": "qwen3.5-4b-b9-32k",
-        "session": "ses_ef68089adffehBzz1VuUbNQtjx", "small": True, "agent": "title"}
+        "session": "ses_0123456789abcdefABCDEFGHIJ", "small": True, "agent": "title"}
 
 
 @pytest.mark.parametrize("line", [
@@ -127,7 +127,7 @@ def test_a_row_takes_the_default_model_it_does_not_name(tmp_path):
     ("slot = 6\n", "one identity's own"),
     ('session_file = "/tmp/s.json"\n', "one identity's own"),
     ("port = 4096\n", "unknown key"),
-    # The defaults hold the model alone (§7.4).
+    # The defaults hold the model alone.
     ('directors = ["main"]\n', "one identity's own"),
     ('cwd = "/w"\n', "one identity's own"),
     ('binary = "/bin/oc"\n', "one identity's own"),

@@ -9,8 +9,8 @@ cursors.
 
 One DIRECTORY per backend. A cursor is a position in ONE record's id space, and two
 records do not share one, so each backend's cursors are filed apart and a flip in either
-direction starts from that backend's own positions. A `discord/` directory left from
-before comms was local-only is never read. The backend is resolved here, not passed:
+direction starts from that backend's own positions. A `discord/` directory an older
+comms wrote is never read. The backend is resolved here, not passed:
 `read` and `advance` keep their signatures and no caller names one.
 
 Every way of answering "no" or "nothing to do" here carries a NAME: see the named reasons

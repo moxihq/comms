@@ -120,14 +120,15 @@ OFFLINE_MESSAGE = ("comms offline: the delivery daemon is unreachable. Messages 
 #: is test visibility on this path; nothing in the claude path reads it.)
 #:
 #: KNOWN GAP, and it is the TRANSITION, not the launch. Telling the agent comms is
-#: offline is met at launch by the roster hook: `shim_roster.py` puts "comms was offline at
-#: session start; `moxi comms agents` shows the live roster once comms is back" into
-#: SessionStart's additionalContext, which reaches the agent. What NOTHING tells the agent
-#: is that the wait ended. `ONLINE_MESSAGE` goes to `status_sink` -> `log.warning` -> the
-#: shim's log, and the `--delta` roster hook cannot cover it either: the offline delta
-#: returns WITHOUT seeding its state file, so the first successful poll after the outage
-#: finds no baseline, seeds quietly and announces nothing. An agent told "comms was offline
-#: at session start" runs on that belief until mail happens to arrive. Both candidate fixes
+#: offline is met at launch by comms' listener: at the session's start it answers turns
+#: with "comms was offline at session start; `moxi comms agents` shows the live roster
+#: once comms is back" (`shim_roster.OFFLINE`), which turns carries to the agent. What
+#: NOTHING tells the agent is that the wait ended. `ONLINE_MESSAGE` goes to `status_sink`
+#: -> `log.warning` -> the shim's log, and the roster delta the listener answers at each
+#: prompt cannot cover it either: the offline snapshot seeds no roster memory, so the
+#: first successful delta after the outage finds no baseline, seeds quietly and
+#: announces nothing. An agent told "comms was offline at session start" runs on that
+#: belief until mail happens to arrive. Both candidate fixes
 #: -- routing status through the injector, or announcing the first usable delta after an
 #: offline start -- change a seam; the gap is named here rather than assumed shut.
 TOLERATED_OFFLINE_MESSAGE = ("comms offline: the delivery daemon is unreachable; this "
@@ -674,8 +675,7 @@ class ClaudeShim:
             self._report("offline", TOLERATED_OFFLINE_MESSAGE)
         except DaemonError as e:
             # A launch into a name another session holds waits for it and cannot send
-            # while it waits (operator ruling, 2026-10-07). Any other refusal ends the
-            # adapter, with one line.
+            # while it waits. Any other refusal ends the adapter, with one line.
             if (not self.autoreconnect or self.refusal_kind(
                     e, numbered=False) != NAME_REFUSAL):
                 raise

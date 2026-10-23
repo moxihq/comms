@@ -4,12 +4,13 @@ A kind is declared by an entry point in the group `moxi.comms.kinds`, named by t
 whose target is a plain table (stdlib data, so a declaration imports nothing of comms):
 
     [project.entry-points."moxi.comms.kinds"]
-    driver = "some_package.kinds:DRIVER"
+    my-claude = "some_package.kinds:MY_CLAUDE"
+    my-person = "some_package.kinds:MY_PERSON"
 
     # some_package/kinds.py
-    DRIVER = {"cache": "harness", "harness": "claude",
-              "evidence": "some_package.kinds:driver_evidence"}
-    SPEECH = {"cache": "person"}
+    MY_CLAUDE = {"cache": "harness", "harness": "claude",
+                 "evidence": "some_package.kinds:my_claude_evidence"}
+    MY_PERSON = {"cache": "person"}
 
 `cache` is the kind's cache treatment:
 

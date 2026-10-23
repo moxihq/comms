@@ -67,14 +67,15 @@ def test_the_verbs_that_act_stay_four():
     is
     untouched and the acting four are still four.
 
-    `owner` reads which identity owns one session id and whom it awaits, for the launch
-    console's keep-warm verb. It reaches the daemon
+    `owner` reads which identity owns one session id and whom it awaits, so a launcher
+    that keeps sessions warm can tell whether a session it may nudge has an ask out. It
+    reaches the daemon
     (one `owner` query) and nothing else; it posts nothing, writes nothing, and reaches
     no credential, so the acting four are still four.
 
     `whoami` is the one CLAIM verb: it reads this session's own claim socket and prints
     what it holds. It posts nothing, writes nothing and reaches no credential, so the
-    acting four are still four. (`pass` went with the baton pass, design §6.7.)
+    acting four are still four.
 
     `claude` is the LAUNCHER: it starts a Claude Code session with a comms identity and
     forks the session's adapter, which binds the name as any session binds it. The verb
@@ -120,7 +121,7 @@ def test_the_built_in_adapter_kinds_stay_four():
 
 
 def test_the_daemon_holds_no_posting_credential(rig):
-    """#notices is gone ([F22]): provisioning mints the daemon no webhook, and the daemon
+    """Provisioning mints the daemon no webhook (there is no #notices row), and the daemon
     has no code path that posts."""
     import inspect
 

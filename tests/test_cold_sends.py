@@ -2,19 +2,16 @@
 `moxi comms cache`, and `--next-turn`.
 
 Every rig test here runs on both backends (BOTH_BACKENDS). No test targets Discord. The
-cache clock is comms' own read of a session's transcript (cold-sends v0.6, RULE 1): the
-transcripts live under the rig's tmp projects root, written by `write_transcript`.
+cache clock is comms' own read of a session's transcript: the transcripts live under
+the rig's tmp projects root, written by `write_transcript`.
 
-v0.6 changed these tests where THE RULE changed what they assert ([R23]): no sender is
-exempt, a small context and a failed read are held, and a young binding with no session id
-is held. The v0.6 cases themselves are in `test_cold_every_sender.py`. cold-hold ([B1],
-2026-10-10) changed them again: a held claude-shim recipient is posted and held, exit 0,
-ending on the `Sent and held:` line; and only a
-recipient the daemon will not hold refuses the post, exit 6. Its own cases are in
-`test_cold_hold.py`. comms/refine §6.4 removed `--cold` (argparse's exit 2 now).
+No sender is exempt and a small context is held like any other. The rule from every
+sender has its own cases in `test_cold_every_sender.py`, and a held claude-shim recipient
+(posted and held, exit 0, ending on the `Sent and held:` line) has its own in
+`test_cold_hold.py`. `--cold` is no flag (argparse's exit 2).
 
-comms/refine §3 (the one queue) changed them again: a cold recipient of any adapter is
-posted and held; a read comms cannot make refuses the post, exit 6, `--held` included;
+A cold recipient of any adapter is posted and held; a read comms cannot make refuses the
+post, exit 6, `--held` included;
 `--next-turn` is `--held`, and held mail is a row in the queue, released only at a
 release point (a `turn` carrying `handled`, a `ready` with a source, a register for
 unflagged rows) and deleted only when the adapter names it handled.
@@ -53,7 +50,7 @@ REVIEWER = dict(slot=2, name="reviewer", scope="proj-a")
 REVIEWER_Q = "reviewer@proj-a"
 
 SESS_REVIEWER = "11111111-1111-4111-8111-111111111111"
-SESS_THINKER = "22222222-2222-4222-8222-222222222222"
+SESS_ARCHIVIST = "22222222-2222-4222-8222-222222222222"
 SESS_OTHER = "33333333-3333-4333-8333-333333333333"
 SESS_BLANK = "44444444-4444-4444-8444-444444444444"
 SESS_OPERATOR = "55555555-5555-4555-8555-555555555555"
@@ -65,7 +62,7 @@ HOUR = 3600
 
 @pytest.fixture
 def bind(rig):
-    """Bindings held by bare DaemonClients: thinker, the operator, a codex name, a
+    """Bindings held by bare DaemonClients: archivist, the operator, a codex name, a
     console. This process holds each the way a module's own process does: its own
     connection, reported to a `ClaimServer` the rig sends through. Closed at the end of
     the test."""
@@ -92,10 +89,10 @@ def bind(rig):
         c.close()
 
 
-def bind_thinker(bind, session_id=SESS_THINKER):
-    """thinker, a global name held by a bare claude-shim binding on `session_id`, which
+def bind_archivist(bind, session_id=SESS_ARCHIVIST):
+    """archivist, a global name held by a bare claude-shim binding on `session_id`, which
     reads its transcript; `""` is a session that has made no request yet (`fresh`)."""
-    return bind(slot=3, name="thinker", global_=True, adapter="claude-shim",
+    return bind(slot=3, name="archivist", global_=True, adapter="claude-shim",
                 session_id=session_id or SESS_BLANK, projects_root=str(projects_root()),
                 turned=bool(session_id))
 
@@ -109,7 +106,7 @@ def bind_operator(bind, slot=4):
 
 def reviewer_with_session(rig, session_id=SESS_REVIEWER, **kwargs):
     """reviewer, on `session_id`. With no transcript written for it, it is a session
-    that has not been prompted yet: `fresh` on its own shim's word (§4 item 3)."""
+    that has not been prompted yet: `fresh` on its own shim's word."""
     return rig.shim(**REVIEWER, session_id=session_id, **kwargs)
 
 
@@ -126,7 +123,7 @@ def send(rig, to, text="hello", *flags, sender=PLANNER, env=None):
 
 
 def held_of(rig, qualified=REVIEWER_Q):
-    """The ids waiting in `qualified`'s queue (design §3.2: one queue)."""
+    """The ids waiting in `qualified`'s queue (one queue holds every row)."""
     with rig.daemon._lock:
         return set(rig.daemon.queue.get(qualified, {}))
 
@@ -175,7 +172,7 @@ def post_many(rig, recipients, n, *, slot=6, display="planner@proj-a", next_turn
 
 def next_turn(rig, to=REVIEWER_Q, text="when you are next about"):
     """A `--held` send through the verb; returns its id once it waits in the queue.
-    `--new-name`: some callers send before the name has ever bound (§7.6); on a name
+    `--new-name`: some callers send before the name has ever bound; on a name
     bound now or before it changes nothing."""
     code, out = send(rig, to, text, "--held", "--new-name")
     assert code == 0, out
@@ -261,11 +258,11 @@ def test_warm_cold_and_a_raw_id_with_no_transcript():
     write_transcript(SESS_REVIEWER, 600)
     write_transcript(SESS_OTHER, 2 * HOUR)
     warm, cold, none = cache.cache_states([cache.target_for_session_id(i) for i in
-                                           (SESS_REVIEWER, SESS_OTHER, SESS_THINKER)])
+                                           (SESS_REVIEWER, SESS_OTHER, SESS_ARCHIVIST)])
     assert warm.kind == "warm"
     assert 595 <= warm.age_seconds <= 660
     assert cold.kind == "cold"
-    # v0.6: no transcript, and a raw id carries no evidence of no request (§4)
+    # no transcript, and a raw id carries no evidence of no request
     assert none.kind == "unknown" and "no transcript for session" in none.reason
 
 
@@ -283,7 +280,7 @@ def test_a_raw_id_needs_no_daemon():
 def test_a_subagents_newer_work_does_not_warm_the_main_clock(tmp_path, monkeypatch):
     """The clock is the main conversation's last assistant line. A sidechain line in
     the main file, and a subagent's own file, are newer and must not move it. Read by
-    comms' own reader (v0.6), against a transcript under a temporary Claude home."""
+    comms' own reader, against a transcript under a temporary Claude home."""
     def line(ts, *, sidechain=False, req="r1"):
         return json.dumps({
             "type": "assistant", "isSidechain": sidechain, "sessionId": SESS_OTHER,
@@ -310,7 +307,7 @@ def test_a_subagents_newer_work_does_not_warm_the_main_clock(tmp_path, monkeypat
 
 # ============================================================== (d) the hold
 
-#: A held send's last line for reviewer, a chosen name (design §3.8.2).
+#: A held send's last line for reviewer, a chosen name.
 HELD_LAST = ("Sent and held: reviewer@proj-a reads this after its own next turn, or when "
              "its session is cleared, compacted or restarted. Nothing wakes it for this "
              "message alone.")
@@ -346,8 +343,8 @@ def test_a_reply_is_held(rig):
 
 
 def test_a_small_context_is_held_like_any_other(rig):
-    """v0.6: card W3's small-context exception is superseded ([C14]). The hold line ends
-    after its cold sentence."""
+    """A small context has no exception: it is held, and the hold line ends after its
+    cold sentence."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, HOUR + 12 * 60)
     code, out = send(rig, REVIEWER_Q)
@@ -367,8 +364,7 @@ def test_warm_and_fresh_go_through_silently(rig):
 
 
 def test_a_failed_read_refuses_the_post(rig):
-    """A clock comms cannot read refuses the send, nothing posted, exit 6 (design
-    §3.8.3, [F7]): the sender sends it again in a moment."""
+    """A clock comms cannot read refuses the send, nothing posted, exit 6: the sender sends it again in a moment."""
     reviewer_with_session(rig)
     path = write_transcript(SESS_REVIEWER, 60)
     path.chmod(0)
@@ -387,7 +383,7 @@ def test_a_failed_read_refuses_the_post(rig):
 
 def test_no_session_id_refuses_the_post_young_or_old(rig):
     """A binding with no session id reported reads unknown: the send is refused, young
-    or old (design §3.8.3)."""
+    or old."""
     rig.shim(**REVIEWER, session_id=None)
     for _ in range(2):
         code, out = send(rig, REVIEWER_Q)
@@ -399,8 +395,8 @@ def test_no_session_id_refuses_the_post_young_or_old(rig):
 
 
 def test_a_failed_session_query_refuses_the_post(rig, monkeypatch):
-    """A `session` query that fails refuses the post, exit 6 (design §3.8.3); the old
-    daemon's own reason is gone with the version check (§3.10)."""
+    """A `session` query that fails refuses the post, exit 6; there is no
+    old daemon's reason and no version check."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 5 * HOUR)
 
@@ -416,16 +412,16 @@ def test_a_failed_session_query_refuses_the_post(rig, monkeypatch):
     assert out.splitlines()[-1] == "Nothing was sent."
 
 
-def test_no_rerun_line_beside_thinker_the_operator_or_codex(rig, bind):
-    """No re-run line on any path. Beside a passing thinker or the operator the cold
+def test_no_rerun_line_beside_archivist_the_operator_or_codex(rig, bind):
+    """No re-run line on any path. Beside a passing archivist or the operator the cold
     reviewer is held and the post goes; beside a codex agent comms cannot read, the
-    whole post is refused (design §3.8.3)."""
+    whole post is refused."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 2 * HOUR)
-    bind_thinker(bind, session_id="")                    # blank anchor: fresh
+    bind_archivist(bind, session_id="")                    # blank anchor: fresh
     bind_operator(bind)
     bind(slot=5, name="coder", scope="proj-a", adapter="codex")
-    for other in ("thinker", "operator"):
+    for other in ("archivist", "operator"):
         code, out = send(rig, f"reviewer@proj-a,{other}")
         assert code == 0, (other, out)
         assert "--held" not in out, other
@@ -441,8 +437,8 @@ def test_no_rerun_line_beside_thinker_the_operator_or_codex(rig, bind):
 
 
 def test_no_sender_is_exempt(rig, bind):
-    """v0.6 ([C14], [C15]): card W2 (a)'s never-held senders are superseded. thinker,
-    the console and the operator's lane are held like any agent."""
+    """No sender is never held: archivist, the console and the operator's lane are held
+    like any agent."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 9 * HOUR)
     # The operator's terminal first: once this process holds bindings it is inside
@@ -453,8 +449,8 @@ def test_no_sender_is_exempt(rig, bind):
         assert code == 0 and out.splitlines()[-1].startswith(HELD_LAST), out
     else:   # the mock keeps no operator credential: the post fails after the check
         assert code == cli.EXIT_FAILED and "posting credential" in out, out
-    bind_thinker(bind, session_id="")
-    code, out = rig.cli(["send", "--posture", "none", "reviewer@proj-a", "from thinker"], name="thinker",
+    bind_archivist(bind, session_id="")
+    code, out = rig.cli(["send", "--posture", "none", "reviewer@proj-a", "from archivist"], name="archivist",
                         env={"MOXI_COMMS_GLOBAL": "1"})
     assert code == 0 and out.splitlines()[-1] == HELD_LAST, out
     bind(slot=4, name="console", scope="acme")
@@ -465,18 +461,18 @@ def test_no_sender_is_exempt(rig, bind):
     wait_until(lambda: held_of(rig) == {m.id for m in posted(rig)})
 
 
-def test_thinker_is_checked_as_a_recipient_and_held_like_any(rig, bind):
-    """A cold global name is held like every recipient ([F5], [F8]): posted, a row."""
-    bind_thinker(bind)
-    write_transcript(SESS_THINKER, 3 * HOUR)
-    code, out = send(rig, "thinker")
+def test_archivist_is_checked_as_a_recipient_and_held_like_any(rig, bind):
+    """A cold global name is held like every recipient: posted, a row."""
+    bind_archivist(bind)
+    write_transcript(SESS_ARCHIVIST, 3 * HOUR)
+    code, out = send(rig, "archivist")
     assert code == 0 and len(posted(rig)) == 1, out
-    assert held_line(out).startswith("held: thinker's cache went cold 2h ago")
+    assert held_line(out).startswith("held: archivist's cache went cold 2h ago")
     assert out.splitlines()[-1] == (
-        "Sent and held: thinker reads this after its own next turn, or when its session "
+        "Sent and held: archivist reads this after its own next turn, or when its session "
         "is cleared, compacted or restarted. Nothing wakes it for this message alone.")
     (msg,) = posted(rig)
-    assert wait_until(lambda: msg.id in held_of(rig, "thinker"))
+    assert wait_until(lambda: msg.id in held_of(rig, "archivist"))
 
 
 def test_unbound_and_operator_recipients_are_not_read(rig, bind):
@@ -488,21 +484,21 @@ def test_unbound_and_operator_recipients_are_not_read(rig, bind):
 
 
 def test_several_recipients_are_held_per_recipient(rig, bind):
-    """One post; warm thinker gets it now, the two cold shims are held."""
+    """One post; warm archivist gets it now, the two cold shims are held."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 2 * HOUR)
-    bind_thinker(bind)
-    write_transcript(SESS_THINKER, 300)          # warm
+    bind_archivist(bind)
+    write_transcript(SESS_ARCHIVIST, 300)          # warm
     rig.shim(slot=4, name="main", scope="proj-a", session_id=SESS_OTHER)
     write_transcript(SESS_OTHER, 3 * HOUR)       # cold too
-    code, out = send(rig, "reviewer@proj-a,thinker,main@proj-a")
+    code, out = send(rig, "reviewer@proj-a,archivist,main@proj-a")
     assert code == 0 and len(posted(rig)) == 1, out
     held_lines = [x for x in out.splitlines() if x.startswith("held:")]
     assert len(held_lines) == 2
     assert "reviewer@proj-a" in held_lines[0] and "main@proj-a" in held_lines[1]
     (msg,) = posted(rig)
     assert wait_until(lambda: msg.id in held_of(rig) and msg.id in held_of(rig, "main@proj-a"))
-    assert msg.id not in held_of(rig, "thinker")
+    assert msg.id not in held_of(rig, "archivist")
 
 
 def test_two_held_recipients_each_get_their_own_line(rig, bind):
@@ -527,7 +523,7 @@ def cache_cli(rig, *targets, **kw):
     return rig.cli(["cache", *targets], **kw)
 
 
-AS_THINKER = dict(name="thinker", env={"MOXI_COMMS_GLOBAL": "1"})
+AS_ARCHIVIST = dict(name="archivist", env={"MOXI_COMMS_GLOBAL": "1"})
 AS_OPERATOR = dict(env={"MOXI_COMMS_OPERATOR": "900001"})
 
 
@@ -536,10 +532,10 @@ def test_comms_cache_speaks_one_line_per_kind(rig, bind):
     write_transcript(SESS_REVIEWER, 4 * 60)
     rig.shim(slot=4, name="main", scope="proj-a", session_id=SESS_OTHER)
     write_transcript(SESS_OTHER, HOUR + 18 * HOUR)
-    bind_thinker(bind)
-    write_transcript(SESS_THINKER, HOUR + 70 * 60)
-    code, out = cache_cli(rig, "reviewer@proj-a", "main@proj-a", "thinker",
-                          SESS_THINKER[:8] + SESS_REVIEWER[8:], **AS_OPERATOR)
+    bind_archivist(bind)
+    write_transcript(SESS_ARCHIVIST, HOUR + 70 * 60)
+    code, out = cache_cli(rig, "reviewer@proj-a", "main@proj-a", "archivist",
+                          SESS_ARCHIVIST[:8] + SESS_REVIEWER[8:], **AS_OPERATOR)
     assert code == 0, out
     lines = out.splitlines()
     # The transcript's stamp is to the second, so the read is 240 to 241 s old.
@@ -547,19 +543,19 @@ def test_comms_cache_speaks_one_line_per_kind(rig, bind):
                         "55 minutes.")
     assert lines[1] == ("main@proj-a: cache expired 18 hours ago. No agent can reach it "
                         "now; only the operator, in its session.")
-    assert lines[2] == ("thinker: cache expired 1 hour 10 minutes ago. No agent can reach "
+    assert lines[2] == ("archivist: cache expired 1 hour 10 minutes ago. No agent can reach "
                         "it now; only the operator, in its session.")
-    # v0.6: a raw id with no transcript carries no evidence that it made no request
+    # a raw id with no transcript carries no evidence that it made no request
     assert lines[3].endswith("Agents' messages to it are held.")
     assert ": cache state not known (no transcript for session" in lines[3]
 
 
 def test_comms_cache_with_no_argument_reads_every_bound_name(rig, bind):
     reviewer_with_session(rig)
-    bind_thinker(bind, session_id="")
+    bind_archivist(bind, session_id="")
     code, out = cache_cli(rig, **AS_OPERATOR)
     assert code == 0, out
-    assert "thinker: new session, no turn yet, nothing cached." in out
+    assert "archivist: new session, no turn yet, nothing cached." in out
     assert "reviewer@proj-a: new session, no turn yet, nothing cached." in out
 
 
@@ -578,7 +574,7 @@ def test_comms_cache_says_why_it_does_not_know(rig, bind):
 
 @pytest.mark.parametrize("who", [
     dict(**PLANNER),                                       # any other name
-    dict(name="thinker", env={"MOXI_COMMS_GLOBAL": "1"}),  # a global name, not listed
+    dict(name="archivist", env={"MOXI_COMMS_GLOBAL": "1"}),  # a global name, not listed
     dict(),                                                # no identity at all
     dict(name="operator", env={"MOXI_COMMS_GLOBAL": "1", "MOXI_COMMS_SLOT": "x"}),  # malformed
     dict(name="planner", env={"MOXI_COMMS_OPERATOR": "900001"}),   # both stamps at once
@@ -594,7 +590,7 @@ def test_comms_cache_refuses_any_other_caller_and_reads_nothing(rig, who):
 # ========================================================== (f) --next-turn
 
 def test_the_mark_rides_line_zero_in_its_place():
-    # An old record's `[next-turn]` and `[speaker]` still parse (comms/refine §3.8.1, §6.0).
+    # An old record's `[next-turn]` and `[speaker]` still parse.
     ml = machine_line.parse("::to a, b re:12 [audience:x] [Next-Turn] [speaker]\nhi")
     assert ml.held and ml.recipients == ("a", "b") and ml.reply_to == "12"
     assert machine_line.parse("::to a [next-turn]\nhi").held
@@ -608,7 +604,7 @@ def test_the_mark_rides_line_zero_in_its_place():
 
 
 def test_a_held_send_waits_with_no_hand_over_and_nothing_delivered(rig):
-    """`--held` reads the cache like any send (§3.8.1); the message is a row, flagged,
+    """`--held` reads the cache like any send; the message is a row, flagged,
     and nothing is handed."""
     reviewer = reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 9 * HOUR)
@@ -641,7 +637,7 @@ def test_the_recipients_own_turn_hands_it_over_and_handled_settles_it(rig):
 
 
 def test_a_newer_message_goes_alone_and_the_row_waits(rig):
-    """No piggyback ([F3]): a live message to the name hands only itself."""
+    """No piggyback: a live message to the name hands only itself."""
     reviewer = rig.shim(**REVIEWER)
     held = next_turn(rig)
     code, out = send(rig, REVIEWER_Q, "now please")
@@ -653,7 +649,7 @@ def test_a_newer_message_goes_alone_and_the_row_waits(rig):
 
 
 def test_a_cursor_past_a_held_id_leaves_its_row(rig):
-    """Rows no longer need the cursor ([I1], [R2]): live mail past a queued id moves the
+    """Rows do not need the cursor: live mail past a queued id moves the
     cursor past it, and the row stays until a `turn` names it handled."""
     reviewer = rig.shim(**REVIEWER)
     held = next_turn(rig)
@@ -669,8 +665,8 @@ def test_a_cursor_past_a_held_id_leaves_its_row(rig):
 
 
 def test_a_ready_with_no_source_releases_nothing_and_a_clear_releases(rig):
-    """A `ready` with no `source` is a pre-round adapter's; it releases nothing. One with
-    `clear` releases every row with no read (§3.5)."""
+    """A `ready` with no `source` is an older adapter's; it releases nothing. One with
+    `clear` releases every row with no read."""
     reviewer = reviewer_with_session(rig)
     mid = next_turn(rig)
     send_ready(reviewer, None)
@@ -690,7 +686,7 @@ def test_an_activity_with_no_kind_releases_nothing(rig):
 
 def test_a_new_sessions_held_mail_goes_at_its_start(rig):
     """Flagged mail to an unbound name: the register releases only unflagged rows; the
-    session's `ready source=startup` releases it ([F2], [R7])."""
+    session's `ready source=startup` releases it."""
     mid = next_turn(rig)                             # unbound: a row
     reviewer = rig.shim(**REVIEWER, session_id=SESS_REVIEWER)
     wait_until(lambda: not reviewer.replaying)
@@ -701,7 +697,7 @@ def test_a_new_sessions_held_mail_goes_at_its_start(rig):
 
 
 def test_a_row_already_handed_is_not_handed_again(rig):
-    """Re-hand ([R58]): a row in the binding's `delivered` is not handed by a release;
+    """Re-hand: a row in the binding's `delivered` is not handed by a release;
     the row stays."""
     reviewer = rig.shim(**REVIEWER)
     mid = next_turn(rig)
@@ -713,7 +709,7 @@ def test_a_row_already_handed_is_not_handed_again(rig):
 
 
 def test_queued_mail_is_never_bounded_and_the_flagged_row_waits(rig):
-    """Bounded replay is for mail with no row (§3.3.4): offline rows past REPLAY_N and
+    """Bounded replay is for mail with no row: offline rows past REPLAY_N and
     older than REPLAY_T all go at the bind's release; the flagged one waits for a real
     boundary."""
     mid = next_turn(rig)
@@ -775,7 +771,7 @@ def test_the_boot_read_finds_held_mail_past_the_rescan_limit(rig, reboot):
 
 
 def test_unbind_keeps_a_handed_rows_row(rig):
-    """A row handed and never named handled stays through the unbind ([R2])."""
+    """A row handed and never named handled stays through the unbind."""
     reviewer = rig.shim(**REVIEWER)
     mid = next_turn(rig)
     send_turn(reviewer)
@@ -808,9 +804,9 @@ def test_the_trim_keeps_held_mail_past_retention(rig):
     assert rig.gateway.get_message(old.id) is None
 
 
-def test_m2_the_queue_load_runs_before_the_socket_listens(rig, monkeypatch):
-    """Nothing can register, and so nothing can be handed, until every row is loaded
-    (§3.3.1). Live mail posted inside the boot window waits as a row and goes at the
+def test_the_queue_load_runs_before_the_socket_listens(rig, monkeypatch):
+    """Nothing can register, and so nothing can be handed, until every row is loaded.
+    Live mail posted inside the boot window waits as a row and goes at the
     bind; the flagged row waits for a real boundary."""
     from moxi_comms.client import DaemonOffline
     held = next_turn(rig)
@@ -844,9 +840,9 @@ def test_m2_the_queue_load_runs_before_the_socket_listens(rig, monkeypatch):
     assert queued_ids(reviewer) == [live.id], "the flagged row waits"
 
 
-def test_m1_the_trim_waits_for_the_queue_load(rig, monkeypatch, reboot):
-    """The trim keeps every queued id, so it never runs before the queue is loaded
-    (§3.11); a load that raises stops the start."""
+def test_the_trim_waits_for_the_queue_load(rig, monkeypatch, reboot):
+    """The trim keeps every queued id, so it never runs before the queue is loaded;
+    a load that raises stops the start."""
     if rig.backend != "local":
         pytest.skip("only the local record trims")
     mid = next_turn(rig)
@@ -877,7 +873,7 @@ def test_m1_the_trim_waits_for_the_queue_load(rig, monkeypatch, reboot):
     assert rig.gateway.get_message(ancient.id) is None
 
 
-def test_m4_the_release_order_is_kept_per_name_not_across_names(rig):
+def test_the_release_order_is_kept_per_name_not_across_names(rig):
     planner = rig.shim(**PLANNER)
     rig.shim(**REVIEWER)
     assert rig.daemon._name_lock(REVIEWER_Q) is rig.daemon._name_lock(REVIEWER_Q)
@@ -901,9 +897,9 @@ def test_m4_the_release_order_is_kept_per_name_not_across_names(rig):
         t.join(5)
 
 
-def test_m6_held_to_a_shim_with_no_session_id_is_refused(rig):
-    """A shim that reports no session id reads unknown, and `--held` is no exception
-    (§3.8.1, §3.8.3): exit 6, nothing posted."""
+def test_held_to_a_shim_with_no_session_id_is_refused(rig):
+    """A shim that reports no session id reads unknown, and `--held` is no exception:
+    exit 6, nothing posted."""
     rig.shim(**REVIEWER, session_id=None)      # like a shim built before this comms
     rig.clock.advance(constants.SESSION_ID_GRACE + 1)
     code, out = send(rig, REVIEWER_Q, "later", "--held")
@@ -927,16 +923,16 @@ class Pushes:
 
 @pytest.mark.parametrize("kw,at_register", [
     (dict(slot=5, name="coder", scope="proj-a", adapter="codex"), False),
-    (dict(slot=3, name="thinker", global_=True, adapter="claude-shim",
+    (dict(slot=3, name="archivist", global_=True, adapter="claude-shim",
           session_id=SESS_BLANK, turned=False), False),
     (dict(slot=4, name="operator", global_=True, adapter="claude-shim",
           session_id=SESS_OPERATOR, turned=False), True),
 ], ids=["codex", "global-name", "operator"])
-def test_m7_flagged_mail_waits_at_every_adapters_bind_but_the_operators(
+def test_flagged_mail_waits_at_every_adapters_bind_but_the_operators(
         rig, kw, at_register):
-    """Every adapter takes held mail ([F5], [F8]): a flagged row waits through the
+    """Every adapter takes held mail: a flagged row waits through the
     register and goes at a real boundary (a session start). The flag never holds the
-    operator ([R12]): his is offline mail, released at his register on a passing read."""
+    operator: his is offline mail, released at his register on a passing read."""
     q = "coder@proj-a" if kw["name"] == "coder" else kw["name"]
     tag = q if "@" in q else f"{q}@global"
     if kw["adapter"] == "claude-shim":                 # no request yet: fresh
@@ -963,8 +959,8 @@ def test_m7_flagged_mail_waits_at_every_adapters_bind_but_the_operators(
 
 def test_comms_agents_and_comms_explain_name_queued_mail(rig):
     """`agents` answers `waiting` per name, with the oldest row's time, and `pending`
-    always empty ([R63]); `explain` names the case `waiting` (§3.11). The roster's
-    rendering of `waiting` is §7.3's."""
+    always empty; `explain` names the case `waiting`. The roster's
+    rendering of `waiting` is tested with the roster."""
     rig.shim(**REVIEWER)
     mid = next_turn(rig)
     sent_at = rig.clock()
@@ -987,16 +983,16 @@ def test_comms_agents_and_comms_explain_name_queued_mail(rig):
     assert cursors.BEHIND not in out
 
 
-def test_held_is_accepted_for_thinker_and_ignored_for_the_operator(rig, bind):
-    """`--held` is accepted for every recipient ([F5], [F8]); for the operator it is
-    ignored and said so ([F21])."""
+def test_held_is_accepted_for_archivist_and_ignored_for_the_operator(rig, bind):
+    """`--held` is accepted for every recipient; for the operator it is
+    ignored and said so."""
     rig.shim(**REVIEWER)
-    bind_thinker(bind, session_id="")                    # blank anchor: fresh
+    bind_archivist(bind, session_id="")                    # blank anchor: fresh
     bind_operator(bind)
-    code, out = send(rig, "reviewer@proj-a,thinker", "later", "--held")
+    code, out = send(rig, "reviewer@proj-a,archivist", "later", "--held")
     assert code == 0, out
     mid = sent_id(out)
-    assert wait_until(lambda: mid in held_of(rig) and mid in held_of(rig, "thinker"))
+    assert wait_until(lambda: mid in held_of(rig) and mid in held_of(rig, "archivist"))
     code, out = send(rig, "reviewer@proj-a,operator", "later", "--held")
     assert code == 0, out
     assert ("NOTE: --held was ignored for operator: the operator has no session to hold "
@@ -1006,8 +1002,8 @@ def test_held_is_accepted_for_thinker_and_ignored_for_the_operator(rig, bind):
     assert mid not in held_of(rig, "operator")
 
 
-def test_held_to_an_unbound_thinker_or_operator_by_name_posts(rig):
-    code, out = send(rig, "thinker@global", "later", "--held", "--new-name")
+def test_held_to_an_unbound_archivist_or_operator_by_name_posts(rig):
+    code, out = send(rig, "archivist@global", "later", "--held", "--new-name")
     assert code == 0, out
     assert posted(rig)[-1].content.splitlines()[0].endswith("[held] [no reply]")
     code, out = send(rig, "operator@global", "later", "--held", "--new-name")
@@ -1036,14 +1032,14 @@ def test_comms_cache_answers_the_operator_alone_by_default(rig):
     """`[policy] cache_callers` is `["operator"]` unless the box's config says more."""
     reviewer_with_session(rig)
     write_transcript(SESS_REVIEWER, 60)
-    code, out = cache_cli(rig, "reviewer@proj-a", **AS_THINKER)
+    code, out = cache_cli(rig, "reviewer@proj-a", **AS_ARCHIVIST)
     assert code == 2 and out.strip().endswith("nothing was read."), out
     code, out = cache_cli(rig, "reviewer@proj-a", **AS_OPERATOR)
     assert code == 0 and out.startswith("reviewer@proj-a: cache warm"), out
 
 
 def test_a_retired_policy_key_fails_the_load_with_a_fix():
-    """[R62]: `never_held` and `next_turn_refused` are retired keys; a config that still
+    """`never_held` and `next_turn_refused` are retired keys; a config that still
     names one fails the load and names the key, rather than being read."""
     from moxi_comms import config
 

@@ -1,7 +1,9 @@
 """`[policy]`: the callers `moxi comms cache` answers, and the send-only refusal's
-words, from comms' config file (design §7.2-§7.4)."""
+words, from comms' config file."""
 
 from __future__ import annotations
+
+import dataclasses
 
 import pytest
 from conftest import write_config
@@ -49,7 +51,7 @@ def test_the_policy_reads_a_given_environment(tmp_path):
     assert policy.for_env().cache_callers == ("operator",)
 
 
-@pytest.mark.parametrize("key", ["never_held", "next_turn_refused", "voice_companion"])
+@pytest.mark.parametrize("key", ["never_held", "next_turn_refused"])
 def test_a_retired_policy_key_is_refused_with_its_fix(key):
     write_config(None, f'[policy]\n{key} = ["x"]\n')
     with pytest.raises(config.ConfigError) as caught:
@@ -58,8 +60,5 @@ def test_a_retired_policy_key_is_refused_with_its_fix(key):
     assert "remove it" in caught.value.fix or "remove it" in str(caught.value)
 
 
-def test_the_fleet_names_are_gone():
-    for gone in ("THINKER", "CONSOLE", "FLEET_DEFAULTS", "STANDALONE_DEFAULTS"):
-        assert not hasattr(policy, gone), gone
-    assert not hasattr(policy.Policy(), "never_held")
-    assert not hasattr(policy.Policy(), "voice_companion")
+def test_a_policy_holds_its_callers_and_labels_and_nothing_else():
+    assert [f.name for f in dataclasses.fields(policy.Policy)] == ["cache_callers", "labels"]

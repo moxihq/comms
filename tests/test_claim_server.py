@@ -26,39 +26,39 @@ ASK = ("import json,os,sys\nfrom moxi_comms import claimhold\n"
 @pytest.fixture
 def servers(rig):
     operator = ClaimServer("operator", "global", kind="codex").start()
-    thinker = ClaimServer("thinker", "global", kind="opencode").start()
+    archivist = ClaimServer("archivist", "global", kind="opencode").start()
     operator.set_bound(slot=1, tier="standing")
-    thinker.set_bound(slot=2, tier="chosen")
-    yield operator, thinker
+    archivist.set_bound(slot=2, tier="chosen")
+    yield operator, archivist
     operator.stop()
-    thinker.stop()
+    archivist.stop()
 
 
 def test_the_holder_sends_as_each_binding_it_holds(servers):
-    operator, thinker = servers
+    operator, archivist = servers
     assert call(operator.socket_path, "claim")["claim"]["qualified"] == "operator"
-    assert call(thinker.socket_path, "claim")["claim"]["qualified"] == "thinker"
+    assert call(archivist.socket_path, "claim")["claim"]["qualified"] == "archivist"
 
 
 def test_a_child_root_is_inside_its_binding_and_refused_on_the_self_only_one(servers):
-    operator, thinker = servers
-    child = thinker.spawn([sys.executable, "-c", ASK, str(thinker.socket_path),
+    operator, archivist = servers
+    child = archivist.spawn([sys.executable, "-c", ASK, str(archivist.socket_path),
                            str(operator.socket_path)], stdout=subprocess.PIPE, text=True)
     out = json.loads(child.communicate(timeout=30)[0])
-    assert out[str(thinker.socket_path)] == "thinker"
+    assert out[str(archivist.socket_path)] == "archivist"
     assert out[str(operator.socket_path)] == NOT_INSIDE
-    assert out["env"] == str(thinker.socket_path)
+    assert out["env"] == str(archivist.socket_path)
     assert wait_for(lambda: all(r["pid"] != child.pid
-                                for r in claimfile.read(thinker.holder.key)["roots"]))
+                                for r in claimfile.read(archivist.holder.key)["roots"]))
 
 
 def test_any_other_child_of_the_holder_is_inside_no_binding(servers):
-    operator, thinker = servers
-    out = subprocess.run([sys.executable, "-c", ASK, str(thinker.socket_path),
+    operator, archivist = servers
+    out = subprocess.run([sys.executable, "-c", ASK, str(archivist.socket_path),
                           str(operator.socket_path)], capture_output=True, text=True,
                          check=True).stdout
     answers = json.loads(out)
-    assert answers[str(thinker.socket_path)] == NOT_INSIDE
+    assert answers[str(archivist.socket_path)] == NOT_INSIDE
     assert answers[str(operator.socket_path)] == NOT_INSIDE
 
 
@@ -80,14 +80,14 @@ def test_the_file_records_the_holder_as_a_self_root(servers):
 
 
 def test_with_its_own_daemon_arm_it_binds_and_goes_offline_with_the_daemon(rig):
-    srv = ClaimServer("voicearm", "proj-a", kind="codex", arm=True).start()
+    srv = ClaimServer("relay", "proj-a", kind="codex", arm=True).start()
     try:
-        assert wait_for(lambda: "voicearm@proj-a" in rig.daemon.bindings)
+        assert wait_for(lambda: "relay@proj-a" in rig.daemon.bindings)
         assert srv.holder.state == "bound"
         assert call(srv.socket_path, "claim")["claim"]["slot"] is not None
     finally:
         srv.stop()
-    assert wait_for(lambda: "voicearm@proj-a" not in rig.daemon.bindings)
+    assert wait_for(lambda: "relay@proj-a" not in rig.daemon.bindings)
 
 
 def test_a_refused_register_leaves_it_holding_nothing(rig):
@@ -104,10 +104,10 @@ def test_a_refused_register_leaves_it_holding_nothing(rig):
 
 
 def test_a_report_after_stop_writes_no_claim_file(rig):
-    """s126.4: once `stop()` has removed the claim file and the socket, a late report
-    (a supervisor finishing a register, voice's binding going offline or waiting, a
-    reap landing) writes nothing. Before, each wrote back a dead `srv-` file that
-    nothing sweeps."""
+    """Once `stop()` has removed the claim file and the socket, a late report
+    (a supervisor finishing a register, a binding going offline or waiting, a
+    reap landing) writes nothing. Otherwise each would write back a dead `srv-` file
+    that nothing sweeps."""
     srv = ClaimServer("late", "proj-a", kind="codex").start()
     child = subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"],
                              stdin=subprocess.PIPE)
@@ -123,9 +123,9 @@ def test_a_report_after_stop_writes_no_claim_file(rig):
                              ("drop_root", lambda: srv.drop_root(child.pid))):
             report()
             assert claimfile.read(srv.holder.key) is None, what
-        # A spawn racing the stop (notify's outcomes loop sending as the service stops)
-        # records no root: before, `add_root` wrote the file back as `bound` with the
-        # child as a `tree` root that the reaper, a no-op by then, never dropped.
+        # A spawn racing the stop (a module's process sending as it stops) records no
+        # root; otherwise `add_root` would write the file back as `bound` with the
+        # child as a `tree` root that the reaper, a no-op by then, never drops.
         roots = list(srv.holder.roots)
         root = srv.add_root(child.pid)
         assert claimfile.read(srv.holder.key) is None, \
@@ -139,14 +139,14 @@ def test_a_report_after_stop_writes_no_claim_file(rig):
         child.communicate()
 
 
-# --------------------------------------------------------------------------- s126.1
+# ----------------------------------------------------------------- a claim's line
 
 def line_of(srv) -> str:
     return call(srv.socket_path, "claim")["line"]
 
 
 def test_a_binding_never_bound_says_so(rig, tmp_path):
-    """s126.1: a claim the daemon has not bound yet says that, not that another session
+    """A claim the daemon has not bound yet says that, not that another session
     holds it: before any report, and through a daemon that is down at start."""
     srv = ClaimServer("fresh", "proj-a", kind="codex").start()
     down = ClaimServer("early", "proj-a", kind="codex", arm=True,
@@ -165,7 +165,7 @@ def test_a_binding_never_bound_says_so(rig, tmp_path):
 
 
 def test_a_refusal_that_names_no_holder_says_the_daemons_words(rig):
-    """s126.1: a register refused for good (`unknown adapter kind`) names the refusal,
+    """A register refused for good (`unknown adapter kind`) names the refusal,
     from the arm's own register and from a holder that reports it."""
     arm = ClaimServer("odd", "proj-a", kind="no-such-kind", arm=True).start()
     held = ClaimServer("told", "proj-a", kind="codex").start()
@@ -182,9 +182,9 @@ def test_a_refusal_that_names_no_holder_says_the_daemons_words(rig):
 
 
 def test_a_held_name_still_says_another_session_holds_it(rig):
-    """s126.1 changes only the never-bound and the refused lines: a holder that drops its
-    claim to `waiting` without the daemon's words (voice's link, after a retried
-    refusal) says what it said before."""
+    """Only the never-bound and the refused lines are their own: a holder that drops its
+    claim to `waiting` without the daemon's words (a link that retries after a
+    refusal) still says another session holds it."""
     srv = ClaimServer("taken", "proj-a", kind="codex").start()
     try:
         srv.set_bound(slot=1, tier="chosen")

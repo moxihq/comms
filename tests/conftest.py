@@ -175,16 +175,16 @@ BOTH_BACKENDS = (
     "test_cache_clock.py",          # the codex and opencode clocks, drift, the free rows
     "test_posture.py",              # the reply posture and the single-reply refusal
     "test_posture_intent.py",       # posture on every new send, replies, open threads
-    "test_old_marks.py",            # [R30]: records with a removed mark still parse
+    "test_old_marks.py",            # records with an older mark still parse
     "test_reply_enforcement.py",    # reply enforcement, mark to reminder (its)
     "test_slot_fix.py",             # keeps, the slot fallback, the bundle's binding
     "test_claim_ops.py",            # the claim socket's op classes and ops
     "test_claim_server.py",         # a binding held by a module's own process
-    "test_claim_send.py",           # sending as the claim; ordinary sends as on main
+    "test_claim_send.py",           # sending as the claim; ordinary sends unchanged
     "test_claim_adapters.py",       # the shim and codex as claim holders
     "test_console_identity.py",     # send-only identities: console@acme
     "test_owner.py",                # the owner read: a session's binding and awaiting
-    "test_send_rule.py",            # [B10]: the env path closed; every kind sends as on main
+    "test_send_rule.py",            # no env path: every kind sends through its claim
     "test_attributed_read.py",      # the attributed_message read: author and recipients
     "test_send_check.py",           # send --check: send's refusals, nothing posted
     "test_names.py",                # one rule for names; retired identities
@@ -373,10 +373,9 @@ class Rig:
 
         `name`, `scope` and `slot` stamp the environment as a launcher does. A send verb
         (`send`, `reply`) with a stamp runs INSIDE a live session holding the stamped
-        identity, because only such a session sends under it (design §3.3, [R16]): the
+        identity, because only such a session sends under it: the
         rig shim bound as that name, through its own claim socket, or, when no rig shim
-        holds it, a session holding the claim `offline` on the stamped slot (§5.6), which
-        is what a stamped send with no binding did before the env path closed. Either way
+        holds it, a session holding the claim `offline` on the stamped slot. Either way
         this process is a `self` root of that session for the one call. `stamp_only=True`
         sends from the stamp alone, which is refused. An `env` that brings its own claim
         socket or the operator's stamp is left as it is. `clock` is the verb's clock
@@ -462,7 +461,7 @@ def rig(backend):
     # which is what it always did.
     prov = provision(
         gateway, directory_db(), slots=6,
-        standing=[("main", "proj-a"), ("main", "proj-b"), ("steward", "global")],
+        standing=[("main", "proj-a"), ("main", "proj-b"), ("herald", "global")],
         operator=("900001", "operator"), store=store,
     )
     daemon = Daemon(gateway, clock=clock, start_trim_thread=False).start()
@@ -554,7 +553,7 @@ def cache_absent(monkeypatch, state="absent"):
     monkeypatch.setattr(cache, "module", lambda: gone)
 
 
-#: The send's `[cold-at:…]` token on line zero (comms/refine §3.8.6, [R70]).
+#: The send's `[cold-at:…]` token on line zero.
 COLD_AT_RE = re.compile(r" \[cold-at:[0-9,-]+\]")
 
 
@@ -624,7 +623,7 @@ def frame_kinds(frames, kind):
     """The frames of one `kind` (None: the no-kind activity)."""
     return [f for f in frames if f.get("kind") == kind]
 # ---------------------------------------------------------------- release-point frames
-# The queue's release points (design §3.4, §3.5) ride `activity` frames from the
+# The queue's release points ride `activity` frames from the
 # binding's own connection. These send them raw through an adapter's own daemon client,
 # so a test of the daemon does not depend on which adapter code sends them.
 
@@ -647,14 +646,14 @@ def own_activity(adapter, **fields) -> None:
 
 
 def send_turn(adapter, handled=(), unhandled=()) -> None:
-    """`activity kind=turn` with `handled` and `unhandled`, as this round's adapters
+    """`activity kind=turn` with `handled` and `unhandled`, as the adapters
     send it at every turn end."""
     own_activity(adapter, kind="turn", turned=True, handled=[str(i) for i in handled],
                  unhandled=[str(i) for i in unhandled])
 
 
 def send_ready(adapter, source: str | None) -> None:
-    """`activity kind=ready`, with `source` unless it is None (a pre-round adapter)."""
+    """`activity kind=ready`, with `source` unless it is None (an older adapter)."""
     extra = {"source": source} if source is not None else {}
     own_activity(adapter, kind="ready", **extra)
 

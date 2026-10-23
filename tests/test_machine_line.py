@@ -135,7 +135,7 @@ def test_the_audience_value_is_a_tag_and_may_be_scoped():
 
 
 def test_the_audience_keyword_is_case_insensitive_and_the_value_is_lowercased():
-    # one audience, whatever the phone's keyboard did to it
+    # one audience, whatever case it was typed in
     for line in ("::to a [audience:Operator]", "::to a [AUDIENCE:OPERATOR]",
                  "  ::TO a RE:1400000000009 [Audience:operator] [Reply-Once]"):
         assert ml.parse(f"{line}\nhi").audience == "operator"
@@ -151,7 +151,7 @@ def test_a_malformed_audience_makes_the_whole_line_prose():
         "::to a [audience: operator]",                         # space is not a tag char
         "::to a [audience:operator",                           # unclosed
         "::to a audience:operator",                            # the brackets are typed
-        "::to a [audience:operator] [audience:thinker]",       # at most one
+        "::to a [audience:operator] [audience:archivist]",     # at most one
         "::to a [audience:operator] re:1400000000001",         # before re: is out of place
         "::to a [reply-once] [audience:operator]",             # after the posture too
         "::to [audience:operator] a",                          # never part of the tag list
@@ -162,10 +162,10 @@ def test_a_malformed_audience_makes_the_whole_line_prose():
 
 
 def test_audience_round_trips_through_compose():
-    body = ml.compose(["thinker"], "answer.", reply_to="1400000000300",
+    body = ml.compose(["archivist"], "answer.", reply_to="1400000000300",
                       audience="operator", posture=ml.POSTURE_ONCE)
     assert body.splitlines()[0] == \
-        "::to thinker re:1400000000300 [audience:operator] [reply-once]"
+        "::to archivist re:1400000000300 [audience:operator] [reply-once]"
     parsed = ml.parse(body)
     assert (parsed.reply_to, parsed.audience, parsed.posture) == \
         ("1400000000300", "operator", ml.POSTURE_ONCE)
@@ -180,7 +180,7 @@ def test_normalize_audience_is_the_parsers_grammar():
     assert ml.normalize_audience(None) is None
 
 
-# ---- comms/refine §3.8: `[held]` and the send's `[cold-at:…]` ([R11], [R70], test 22)
+# ---- `[held]` and the send's `[cold-at:…]`
 
 def test_held_is_written_in_the_old_slot_and_both_tokens_parse_as_held():
     line = ml.format_line(["a"], reply_to="9", next_turn=True, posture="once")
@@ -206,7 +206,7 @@ def test_the_cold_at_round_trips_and_a_dash_is_not_a_time():
 def test_a_line_with_no_cold_at_carries_no_reading():
     assert ml.parse("::to a, b [no reply]\nhi").cold_at is None
     assert ml.parse("::to a [next-turn]\nold").cold_at is None
-    assert ml.format_line(["a"]) == "::to a", "cold_at=None writes today's bytes"
+    assert ml.format_line(["a"]) == "::to a", "cold_at=None writes the plain line"
 
 
 @pytest.mark.parametrize("line", [

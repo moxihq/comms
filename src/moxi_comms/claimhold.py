@@ -116,7 +116,7 @@ class ClaimHolder:
         self.claim: dict | None = None
         self.hold = 0
         self.launch_session = launch_session
-        #: The port's running harness session (P4): its id; "" when the holder knows it
+        #: The port's running harness session: its id; "" when the holder knows it
         #: runs none; None while it is not known (a port that has not noted one yet). A record with no key at
         #: all, or null, reads as not known.
         self.running_session: str | None = None
@@ -126,9 +126,9 @@ class ClaimHolder:
         #: Why a `waiting` claim waits, when it is not that another session holds its
         #: name (`send_line`): "" while it has been neither bound nor refused, else the
         #: daemon's words for a refusal that names no holder. None (null, or no key):
-        #: another session holds the name. Only a `ClaimServer` sets it (s126.1).
+        #: another session holds the name. Only a `ClaimServer` sets it.
         self.waiting_why: str | None = None
-        #: One register in flight (T4): the adapter's supervisor's.
+        #: One register in flight: the adapter's supervisor's.
         self.register_lock = threading.Lock()
         self._server: socket.socket | None = None
         self._stop = threading.Event()
@@ -235,7 +235,7 @@ class ClaimHolder:
             self.save()
 
     def note_session(self, session_id: str | None) -> None:
-        """The port's running harness session (P4)."""
+        """The port's running harness session."""
         with self.lock:
             if session_id != self.running_session:
                 self.running_session = session_id
@@ -249,7 +249,7 @@ class ClaimHolder:
             return self.claim.get("qualified"), self.hold
 
     def may_advance(self, mark) -> bool:
-        """P5: a cursor moves only for the name its digest was injected under, in the
+        """A cursor moves only for the name its digest was injected under, in the
         same hold, while the adapter still holds it."""
         with self.lock:
             return (mark is not None and self.holds
@@ -538,7 +538,7 @@ class ClaimServer:
         return {CLAIM_SOCKET_ENV: str(self.socket_path)}
 
     # holder-reported state. Each is a no-op once `stop()` has run: the file went with
-    # the socket, and a late report would write it back as a dead `srv-` file (s126.4).
+    # the socket, and a late report would write it back as a dead `srv-` file.
     def set_bound(self, slot=None, tier=None) -> None:
         with self.holder.lock:
             if self._stop.is_set():
@@ -667,12 +667,12 @@ class ClaimServer:
         # ordering total: either the close landed first and this declines the bind, or
         # `_on_close` runs after it and reads the binding offline. Unchecked, a close
         # between the answer and `set_bound` was overwritten with `bound` and the
-        # supervisor slept on a binding the daemon no longer held (s113.1, as the
-        # Claude shim's `_connect_once` guards it).
+        # supervisor slept on a binding the daemon no longer held (the Claude shim's
+        # `_connect_once` guards it the same way).
         with self.holder.lock:
             if self._stop.is_set():
                 # A bind must not outlive `stop()`, as the Claude shim declines it: the
-                # daemon would hold it until the process exits (s125.1).
+                # daemon would hold it until the process exits.
                 client.close()
                 return False
             if not client.connected:

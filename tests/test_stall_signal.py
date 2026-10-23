@@ -108,7 +108,7 @@ def test_an_injection_nothing_answers_is_reported_once():
     assert stall.STALL_REASON in line
     assert "1400000000007" in line
     assert "comms explain planner@proj-a" in line, "it points at the command that answers"
-    assert "alarm" not in line, "no other detector to name ([F22])"
+    assert "alarm" not in line, "no other detector to name"
     assert st.fired == 1
     assert st.armed is False
 

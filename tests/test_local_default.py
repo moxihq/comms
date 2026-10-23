@@ -1,8 +1,8 @@
 """The default backend, and a daemon's first-start provisioning.
 
 With no flag, environment variable or config naming a backend, the backend is `local`;
-`mock` is only ever chosen by name. There is one behaviour: the profile that once
-switched the fallthrough to `mock` is gone (design §7.2 [R47]).
+`mock` is only ever chosen by name. There is one behaviour: no profile switches the
+fallthrough to `mock`.
 
 A daemon on `local` whose directory is not provisioned provisions it before it serves,
 with what `moxi-comms-provision` makes when run with no flags: `[provision] slots` (6),
@@ -63,7 +63,7 @@ def test_with_nothing_named_the_backend_is_local():
 
 def test_the_profile_is_gone_from_the_choice():
     """`MOXI_COMMS_PROFILE` is read by nothing, and the choice carries no profile."""
-    assert gw.backend_name(env=env_of(MOXI_COMMS_PROFILE="fleet")) == gw.LOCAL
+    assert gw.backend_name(env=env_of(MOXI_COMMS_PROFILE="x")) == gw.LOCAL
     assert not hasattr(gw.backend_choice(env=env_of()), "profile")
 
 

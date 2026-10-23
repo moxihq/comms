@@ -1,4 +1,4 @@
-"""The one queue (comms/refine §3): rows, release points, settle, the readers' rules, the
+"""The one queue: rows, release points, settle, the readers' rules, the
 migration, the trim, and the send's cold-at at the daemon.
 
 Every rig test here runs on both backends. The daemon's cache read is set per name by the
@@ -7,12 +7,12 @@ exception handling and the verb's `session` answer all see it). Bindings are bar
 `DaemonClient`s (`Peer`) that record what the daemon pushes and send the adapters'
 `activity` frames raw, so these tests do not depend on which adapter code sends them; the
 Claude shim's own frames are tested in `test_shim_events.py`, and against this daemon in
-section (h), which needs the shim of this round.
+section (h), which needs the current shim.
 
-Sections: (a) [I1] and settle, (b) no piggyback, (c) the release table, (d) re-hand,
+Sections: (a) a held id survives, and settle, (b) no piggyback, (c) the release table, (d) re-hand,
 (e) the readers, (f) failed hand-off, (g) migration and trim, (h) the Claude shim end to
 end, (j) the send's cold-at at the daemon, (k) adapters started before the deploy, (l) a
-row whose message the record lost. (Section (i), the driver kind, left with that kind.)
+row whose message the record lost.
 """
 
 from __future__ import annotations
@@ -251,11 +251,11 @@ def whole_seconds(rig) -> int:
     return int(rig.clock.t)
 
 
-# ============================================================ (a) [I1] and settle
+# ============================================ (a) a held id survives, and settle
 
-def test_i1_a_held_id_the_cursor_passed_survives_a_restart_and_goes_at_the_next_turn(
+def test_a_held_id_the_cursor_passed_survives_a_restart_and_goes_at_the_next_turn(
         rig, reads, peers, reboot):
-    """§3.13 test 1. `--held` to warm reviewer, then a live message; the turn that
+    """`--held` to warm reviewer, then a live message; the turn that
     handles the live one moves the cursor past the held id; the daemon restarts; the held
     id is still a row and goes at reviewer's next turn."""
     reads[REVIEWER_Q] = cache.WARM
@@ -284,8 +284,8 @@ def test_i1_a_held_id_the_cursor_passed_survives_a_restart_and_goes_at_the_next_
     assert record_rows(rig.gateway, REVIEWER_Q) == set()
 
 
-def test_a_b1_only_a_turn_naming_the_id_handled_deletes_its_row(rig, reads, peers, reboot):
-    """§3.13 test 2. The held id is handed after the cursor already passed it. A `turn`
+def test_only_a_turn_naming_the_id_handled_deletes_its_row(rig, reads, peers, reboot):
+    """The held id is handed after the cursor already passed it. A `turn`
     with `handled` empty, the binding's exit and a daemon restart each leave the row; only
     a `turn` that names it handled deletes it."""
     reads[REVIEWER_Q] = cache.WARM
@@ -314,7 +314,7 @@ def test_a_b1_only_a_turn_naming_the_id_handled_deletes_its_row(rig, reads, peer
 
 def test_a_handled_report_for_an_id_this_binding_was_not_handed_is_ignored(
         rig, reads, peers, caplog):
-    """§3.3.3: settle acts only on ids the binding was handed; another is logged."""
+    """Settle acts only on ids the binding was handed; another is logged."""
     reads[REVIEWER_Q] = cache.COLD                # the frame's release hands nothing
     peer = peers()
     held = post(rig, [REVIEWER_Q], "later", held=True)
@@ -329,7 +329,7 @@ def test_a_handled_report_for_an_id_this_binding_was_not_handed_is_ignored(
 # ============================================================ (b) no piggyback
 
 def test_a_live_message_with_rows_waiting_hands_only_itself(rig, reads, peers):
-    """§3.13 test 3, [F3]. A flagged row and a row queued while cold both wait while a
+    """A flagged row and a row queued while cold both wait while a
     live message to the name goes alone."""
     reads[REVIEWER_Q] = cache.COLD
     peer = peers()
@@ -348,7 +348,7 @@ def test_a_live_message_with_rows_waiting_hands_only_itself(rig, reads, peers):
 
 # ============================================================ (c) the release table
 
-#: §3.5, one row each: (event, the read at it, what it releases).
+#: The release table, one row each: (event, the read at it, what it releases).
 RELEASE_TABLE = [
     ("ready startup", cache.COLD, "all"),
     ("ready clear", cache.COLD, "all"),
@@ -372,10 +372,9 @@ RELEASE_TABLE = [
 @pytest.mark.parametrize("event,read,releases", RELEASE_TABLE,
                          ids=[f"{e}-{r}" for e, r, _ in RELEASE_TABLE])
 def test_the_release_table(rig, reads, peers, kind, event, read, releases):
-    """§3.13 test 5: one test per row of §3.5, on the Claude shim and a harness double.
+    """One test per row of the release table, on the Claude shim and a harness double.
     Each name has a flagged row and an unflagged one (queued while cold, or while
-    unbound for the register rows). `fork` and any other source read as resume (§3.13
-    test 18); a `ready` with no source, a `turn` with no `handled` and an `activity` with
+    unbound for the register rows). `fork` and any other source read as resume; a `ready` with no source, a `turn` with no `handled` and an `activity` with
     no kind release nothing."""
     q = REVIEWER_Q if kind == "shim" else CODER_Q
     if event == "register":
@@ -413,7 +412,7 @@ def test_the_release_table(rig, reads, peers, kind, event, read, releases):
 # ============================================================ (d) re-hand
 
 def test_a_handed_row_is_not_handed_again_until_named_unhandled(rig, reads, peers):
-    """§3.13 test 8. A second `turn` does not hand a row again. Named `unhandled`, it is
+    """A second `turn` does not hand a row again. Named `unhandled`, it is
     not handed by the frame that reported it (its release runs before settle), and is
     handed at the next release point."""
     reads[REVIEWER_Q] = cache.WARM
@@ -458,7 +457,7 @@ def test_an_unhandled_id_this_binding_was_not_handed_is_ignored(rig, reads, peer
 
 
 def test_unbind_queues_handed_ids_not_handled_and_not_past_the_cursor(rig, reads, peers):
-    """§3.3.2 row 4: at unbind, every handed id with no row, that the adapter did not
+    """At unbind, every handed id with no row, that the adapter did not
     name handled and that its cursor has not passed, gets a row. Of three handed ids,
     one is at the cursor (no row), one is handled above it (no row: the clamp kept the
     cursor below it), one is neither (a row)."""
@@ -479,7 +478,7 @@ def test_unbind_queues_handed_ids_not_handled_and_not_past_the_cursor(rig, reads
 # ============================================================ (e) the readers
 
 def test_a_rescan_while_bound_hands_no_row_id(rig, reads, peers):
-    """§3.13 test 10, first half. Rows wait for a release point: a rescan, which routes
+    """Rows wait for a release point: a rescan, which routes
     the record again as live, skips them, unflagged and flagged alike, on a warm read."""
     reads[REVIEWER_Q] = cache.COLD
     peer = peers()
@@ -496,7 +495,7 @@ def test_a_rescan_while_bound_hands_no_row_id(rig, reads, peers):
 
 def test_replay_makes_a_flagged_message_with_no_row_a_row_and_delivers_it_not(
         rig, reads, peers, blocked):
-    """§3.13 test 10. A flagged message replay finds with no row becomes a row and is not
+    """A flagged message replay finds with no row becomes a row and is not
     delivered; an unflagged one beside it is replayed."""
     reads[REVIEWER_Q] = cache.WARM
     with blocked:
@@ -511,7 +510,7 @@ def test_replay_makes_a_flagged_message_with_no_row_a_row_and_delivers_it_not(
 
 
 def test_a_rescan_writes_no_row_at_or_below_the_cursor(rig, reads, peers, blocked):
-    """§3.13 test 10. Unbound: an id at or below the cursor gets no row from a rescan,
+    """Unbound: an id at or below the cursor gets no row from a rescan,
     one above it does. Bound: an id at or below the cursor is neither delivered nor
     queued."""
     with blocked:
@@ -535,7 +534,7 @@ def test_a_rescan_writes_no_row_at_or_below_the_cursor(rig, reads, peers, blocke
 # ============================================================ (f) failed hand-off
 
 def test_a_failed_hand_off_is_a_row_the_next_binding_gets(rig, reads, peers, monkeypatch):
-    """§3.13 test 11, [F12]: the socket fails at `sendall`; the id leaves `delivered`
+    """The socket fails at `sendall`; the id leaves `delivered`
     and gets a row, and the name's next binding is handed it."""
     reads[REVIEWER_Q] = cache.WARM
     peer = peers()
@@ -599,7 +598,7 @@ def _has_refusals_table(rig) -> bool:
 
 
 def test_the_migration_moves_held_mail_into_the_queue_once(rig, monkeypatch):
-    """§3.13 test 12, [R4]. A gate file with held and refused ids and a `[next-turn]`
+    """A gate file with held and refused ids and a `[next-turn]`
     record: the first boot makes rows for the held ones (not past the cursor, still in
     the record) and the `[next-turn]` one, none for refused and none for `[held]` or
     `[next-turn]` mail at or below its recipient's cursor, deletes the file, drops
@@ -608,7 +607,7 @@ def test_the_migration_moves_held_mail_into_the_queue_once(rig, monkeypatch):
     monkeypatch.setattr(constants, "RESCAN_LIMIT", 1)     # the boot rescan reads past none
     rig.daemon.stop()
     # Old flagged mail the cursor has passed: handled long ago, it gets no row.
-    old_held = post(rig, [REVIEWER_Q], "held, handled before the round", held=True)
+    old_held = post(rig, [REVIEWER_Q], "held, handled before", held=True)
     old_next_turn = post(rig, [], raw="::to reviewer@proj-a [next-turn]\nhandled too")
     passed = post(rig, [REVIEWER_Q], "cold-held, then handled")
     held = post(rig, [REVIEWER_Q], "cold-held by the old daemon")
@@ -649,7 +648,7 @@ def _age(rig, mid, days) -> None:
 
 def test_the_trim_keeps_every_queued_message_past_retention(rig, reads, peers,
                                                             monkeypatch):
-    """§3.13 test 13, [R9], and the lead's call on a row's message: the record keeps
+    """The record keeps
     every message with a row whatever its age. Both of the trim's guards: the record's
     own (a row in the `queue` table keeps its message even when the daemon passes no
     `keep`), and the daemon's `keep` (a row whose record write has not landed yet)."""
@@ -715,7 +714,7 @@ def frames(monkeypatch):
 
 
 def test_the_idle_tick_flushes_live_mail_and_releases_no_row(rig, frames):
-    """§3.13 test 4. A live message to an idle warm shim with a flagged row is flushed by
+    """A live message to an idle warm shim with a flagged row is flushed by
     the idle tick; the tick's frame carries no kind; the row is not handed; the next real
     Stop releases it."""
     peer = ShimPeer(rig, **REVIEWER)
@@ -742,7 +741,7 @@ def test_the_idle_tick_flushes_live_mail_and_releases_no_row(rig, frames):
 
 
 def test_a_ready_before_the_register_goes_after_it_once(rig, frames):
-    """§3.13 test 6, [R5]. A SessionStart that comes before the shim is bound is sent
+    """A SessionStart that comes before the shim is bound is sent
     right after the register answer, once; its `startup` releases the flagged row a
     register holds."""
     held = post(rig, [REVIEWER_Q], "later", held=True)
@@ -780,7 +779,7 @@ def _clamp_setup(rig, blocked):
 
 def test_the_clamp_keeps_the_cursor_below_a_held_live_id_and_unbind_queues_it(
         rig, frames, blocked):
-    """§3.13 test 7, [R3], first half: the turn's cursor stops below L; the shim dies;
+    """The turn's cursor stops below L; the shim dies;
     L is a row at unbind."""
     peer, low, high = _clamp_setup(rig, blocked)
     assert cursors.read(REVIEWER_Q) is None or int(cursors.read(REVIEWER_Q)) < int(low)
@@ -791,7 +790,7 @@ def test_the_clamp_keeps_the_cursor_below_a_held_live_id_and_unbind_queues_it(
 
 
 def test_the_clamps_high_water_mark_reaches_the_earlier_digest(rig, frames, blocked):
-    """§3.13 test 7, second half: once L completes, the cursor reaches H's `through`."""
+    """Once L completes, the cursor reaches H's `through`."""
     peer, low, high = _clamp_setup(rig, blocked)
     peer.shim.on_turn_boundary()                     # L completes
     peer.sync()
@@ -800,7 +799,7 @@ def test_the_clamps_high_water_mark_reaches_the_earlier_digest(rig, frames, bloc
 
 
 def test_the_shim_writes_its_cursor_before_its_turn_frame(rig, frames):
-    """§3.13 test 9, [R57]: when the daemon reads the `turn` frame, the cursor file
+    """When the daemon reads the `turn` frame, the cursor file
     already names the digest it reports handled."""
     peer = ShimPeer(rig, **REVIEWER)
     shim = peer.shim
@@ -830,7 +829,7 @@ def _cold_at_cases(now):
 @pytest.mark.parametrize("failure", ["unknown", "raises"])
 def test_an_unknown_read_at_live_routing_is_decided_by_the_cold_at(rig, reads, peers,
                                                                   failure):
-    """§3.13 test 20, [R8], [R72]: on an `unknown` read (or a read that raised) a message
+    """On an `unknown` read (or a read that raised) a message
     whose cold-at for the recipient is `-` or ahead of the daemon's clock goes live; one
     at or behind the clock, or with no token, gets a row. The value is the one at the
     recipient's position on line zero."""
@@ -854,7 +853,7 @@ def test_an_unknown_read_at_live_routing_is_decided_by_the_cold_at(rig, reads, p
 @pytest.mark.parametrize("failure", ["unknown", "raises"])
 def test_an_unknown_read_at_replay_splits_one_batch_by_cold_at(rig, reads, peers, blocked,
                                                                failure):
-    """§3.13 test 20: the same cases found by replay in one batch split the same way;
+    """The same cases found by replay in one batch split the same way;
     the register's release on that read hands nothing."""
     now = whole_seconds(rig)
     with blocked:
@@ -886,7 +885,7 @@ def test_a_known_read_decides_alone_whatever_the_cold_at(rig, reads, peers):
 
 
 def test_a_dash_never_expires(rig, reads, peers, blocked):
-    """Verification-3 part 1 MINOR 2: `-` has no time. Live, a year on, an `unknown`
+    """`-` has no time. Live, a year on, an `unknown`
     read still delivers it; replayed into a later binding a month after the send, too."""
     reads[REVIEWER_Q] = cache.UNKNOWN
     with blocked:
@@ -902,7 +901,7 @@ def test_a_dash_never_expires(rig, reads, peers, blocked):
 
 
 def test_release_points_read_no_cold_at(rig, reads, peers):
-    """§3.13 test 21, [R71]: a row whose message carries a cold-at ahead waits through a
+    """A row whose message carries a cold-at ahead waits through a
     `turn` whose read is `unknown`; a `ready source=clear` releases it."""
     now = whole_seconds(rig)
     reads[REVIEWER_Q] = cache.COLD
@@ -920,12 +919,12 @@ def test_release_points_read_no_cold_at(rig, reads, peers):
 # ============================================================ (k) adapters started before the deploy
 
 @pytest.mark.parametrize("kind", ["claude-shim", "codex"])
-def test_a_pre_round_adapter_gets_rows_queued_while_cold_only_at_a_register(
+def test_an_older_adapter_gets_rows_queued_while_cold_only_at_a_register(
         rig, reads, peers, kind):
-    """Fold-1 MINOR-4, §3.14: an adapter started before the deploy sends `turn` with no
+    """An adapter started before the deploy sends `turn` with no
     `handled` and `ready` with no `source`. Unflagged mail queued while it was cold waits
     through both, as flagged mail does, and goes at its next register on a passing read;
-    the flagged row still waits for a binding of this round's code."""
+    the flagged row still waits for a binding of the current code."""
     q = REVIEWER_Q if kind == "claude-shim" else CODER_Q
     reads[q] = cache.COLD
     old = peers(kind)
@@ -947,7 +946,7 @@ def test_a_pre_round_adapter_gets_rows_queued_while_cold_only_at_a_register(
 
 
 def test_a_turn_with_no_handled_deletes_no_handed_row(rig, reads, peers):
-    """§3.13 test 18: a `turn` with no `handled` settles nothing, whatever else it says."""
+    """A `turn` with no `handled` settles nothing, whatever else it says."""
     reads[REVIEWER_Q] = cache.WARM
     peer = peers()
     held = post(rig, [REVIEWER_Q], "later", held=True)
@@ -987,8 +986,7 @@ def _garble(rig, mid) -> None:
 @pytest.mark.parametrize("damage", [_lose, _garble], ids=["gone", "unparseable"])
 def test_a_row_whose_message_the_record_lost_is_kept_skipped_and_logged_once(
         rig, reads, peers, caplog, damage):
-    """The lead's call on the first builder's departure 2: a row is deleted only on
-    `handled`. A row whose message a hand-damaged record no longer has (or no longer
+    """A row is deleted only on `handled`. A row whose message a hand-damaged record no longer has (or no longer
     parses) is skipped at every release point and kept, the rows beside it go out, and
     the daemon log says so once."""
     reads[REVIEWER_Q] = cache.COLD

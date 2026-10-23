@@ -139,7 +139,7 @@ def console_cli(rig, srv, argv):
 def test_a_send_only_register_is_refused_for_a_row_that_is_not_send_only(console):
     for kw in (dict(name="main", scope="proj-a"),          # a standing agent row
                dict(name="planner", scope="proj-a"),       # a chosen name, no row
-               dict(name="steward", global_=True),         # a global standing row
+               dict(name="herald", global_=True),         # a global standing row
                dict()):                                    # the auto-namer
         with pytest.raises(DaemonError) as e:
             register(slot="next-free", adapter="send-only", **kw)
@@ -158,7 +158,7 @@ def test_an_agent_kind_register_of_console_is_refused(console, kind):
 
 
 def test_the_send_only_kind_binds_console_and_only_agents_seats_shows_it(server, console):
-    """[R43]: a send-only binding is not a name anyone can message, so the default view
+    """A send-only binding is not a name anyone can message, so the default view
     leaves it out; the operator's `--seats` view lists it."""
     b = console.daemon.bindings[CONSOLE]
     assert b.adapter == "send-only" and b.tier == "standing"
@@ -174,9 +174,8 @@ def test_the_send_only_kind_binds_console_and_only_agents_seats_shows_it(server,
 @pytest.mark.parametrize("tag,scope", [("console@acme", "proj-a"),
                                        ("console@acme", "acme")])
 def test_a_send_to_console_is_refused_before_posting(console, request, bound, tag, scope):
-    """console@acme typed in full meets the send-only refusal from every scope
-    ([C16] keeps its name). A bare `console` is the global console, not this one
-    ([C10]; below)."""
+    """console@acme typed in full meets the send-only refusal from every scope,
+    which names it. A bare `console` is the global console, not this one (below)."""
     if bound:
         request.getfixturevalue("server")
     before = len(history(console))
@@ -304,8 +303,8 @@ def test_a_reply_once_line_naming_console_leaves_no_ask_open_for_it(console, pus
 def test_a_bare_console_is_the_global_console_an_ordinary_unbound_name(console, pushes,
                                                                      scope):
     """console@acme is bound; a bare `console` is the global console from every
-    scope, acme included ([C10], §7.10.1): a chosen name nobody has bound, pended
-    for it (with `--new-name`, §7.6), never the send-only console's."""
+    scope, acme included: a chosen name nobody has bound, pended
+    for it (with `--new-name`), never the send-only console's."""
     code, out = console.cli(["send", "--posture", "none", "--new-name", "console", "hello"],
                             name="lead", scope=scope, slot=5)
     assert code == 0, out
@@ -489,7 +488,7 @@ def test_the_cli_dispatches_the_send_only_subcommand(rig, monkeypatch):
     assert seen["argv"] == ["console@acme"]
 
 
-# --------------------------------------------------------------------------- build verification 1
+# ---------------------------------------------------------------- the arm's registers
 
 def _armed_but_unsupervised(name="console", scope="acme", kind="send-only", **kw):
     """A ClaimServer whose daemon arm the test drives one register at a time."""
@@ -499,14 +498,14 @@ def _armed_but_unsupervised(name="console", scope="acme", kind="send-only", **kw
     return srv
 
 
-#: The arm's slot behaviour needs a binding that holds a slot, and since [B14] the
+#: The arm's slot behaviour needs a binding that holds a slot, and the
 #: console holds none: these three drive a ClaimServer of a chosen name, the shape a
 #: module's own holder takes, registered under a built-in kind.
-ARM = "voicearm@proj-a"
+ARM = "relay@proj-a"
 
 
 def _slot_arm(**kw):
-    return _armed_but_unsupervised(name="voicearm", scope="proj-a", kind="codex", **kw)
+    return _armed_but_unsupervised(name="relay", scope="proj-a", kind="codex", **kw)
 
 
 def test_a_rebind_after_the_daemon_drops_it_asks_next_free_not_its_last_slot(console):
@@ -554,7 +553,7 @@ def test_a_pinned_slot_held_by_another_name_falls_back_to_next_free(console, cap
 def test_a_refused_name_is_not_taken_for_a_slot_refusal(console):
     """Pinned, and refused for the name (another holder of it): no fallback register
     binds it anywhere."""
-    first = ClaimServer("voicearm", "proj-a", kind="codex", arm=True).start()
+    first = ClaimServer("relay", "proj-a", kind="codex", arm=True).start()
     try:
         assert wait_until(lambda: ARM in console.daemon.bindings)
         srv = _slot_arm(slot=5)
@@ -570,7 +569,7 @@ def test_a_refused_name_is_not_taken_for_a_slot_refusal(console):
 def test_a_bare_console_in_acme_is_the_global_console_while_one_is_bound(
         console):
     """console@acme unbound, a global `console` bound by hand: a bare `console`
-    from acme is that global binding, as for any name ([C10]); console@acme
+    from acme is that global binding, as for any name; console@acme
     typed in full is still the send-only row, refused."""
     frames = []
     global_console = DaemonClient(daemon_socket(), on_push=frames.append).connect()
@@ -633,9 +632,9 @@ def test_the_provisioning_refuses_a_retired_send_only_row(console):
         db.close()
 
 
-# --------------------------------------------------------------------------- no slot ([B14])
+# --------------------------------------------------------------------------- no slot
 #
-# The rule ([R27], design §3.4 *No slot*, operator ruling [C27]): a send-only binding is
+# The rule: a send-only binding is
 # never on a slot -- not at its register, not while it is bound, not at its unbind, not
 # across a daemon restart. It takes none of the provisioned slots, spends no slot keep,
 # has no entry in the keep mark, and no free-slot count sees it.
@@ -797,7 +796,7 @@ def test_agents_seats_lists_it_with_no_slot(console, server):
 def test_across_a_daemon_restart_it_is_never_on_a_slot(console, monkeypatch):
     """Stopped cleanly (the freeze writes the mark), crashed (the mark stays as last
     written), and stopped inside the arm's register, after the daemon answered and
-    before the arm took the binding (s113.1, forced): the mark never names the console,
+    before the arm took the binding (forced): the mark never names the console,
     the new daemon keeps it no slot, and the arm re-registers it with none."""
     import itertools
 
@@ -837,7 +836,7 @@ def test_across_a_daemon_restart_it_is_never_on_a_slot(console, monkeypatch):
 
 def test_the_claim_keeps_next_free_as_its_slot_and_a_child_gets_no_comms_slot(console,
                                                                             server):
-    """v0.25 re-check MN2: `set_bound` keeps the asked value when the answer's slot is
+    """`set_bound` keeps the asked value when the answer's slot is
     null, so the console's claim carries the string `next-free`, never a number; every
     reader takes only an int, so its children get no `MOXI_COMMS_SLOT`."""
     from moxi_comms import claimfile

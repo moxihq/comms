@@ -220,7 +220,7 @@ TERMS: tuple[Entry, ...] = (
         "the record your messages live in is a file on this box, not a service "
         "somewhere else. `moxi comms send` writes it directly, so a message is in the record "
         "even while the machinery that delivers it is restarting, and `moxi comms history` "
-        "reads it with no network at all. History starts the day the box moved onto it; "
+        "reads it with no network at all. History starts when the record was created; "
         "nothing older is here.",
         aliases=("record", "backend"),
     ),

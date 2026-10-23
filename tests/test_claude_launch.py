@@ -1,4 +1,4 @@
-"""`moxi comms claude` forks the session's adapter before it execs `claude` (design §5.9),
+"""`moxi comms claude` forks the session's adapter before it execs `claude`,
 and the daemon's no-endpoint state as a sender and the doctor read it.
 
 The launch runs for real in a child process, with a stand-in `claude` that records what
@@ -24,7 +24,7 @@ from moxi_comms import claimfile
 from moxi_comms.adapters import session
 
 NAME = "launched"
-#: The id the launch names to `claude` (RULE D6), and its session dir's name.
+#: The id the launch names to `claude`, and its session dir's name.
 SID = "5e55a1d0-0000-4000-8000-0000000000f1"
 
 
@@ -231,7 +231,7 @@ def test_the_launcher_refuses_an_id_it_cannot_name(capsys, own, passthrough, say
 
 
 def test_the_adapter_states_the_named_id_from_its_bind():
-    """RULE D6: the adapter's shim carries the launch's id before any look; an unnamed
+    """The adapter's shim carries the launch's id before any look; an unnamed
     resume's carries none."""
     for stated in (SID, None):
         s = session.Session(stated or "fk3", name=NAME, project="proj-a")

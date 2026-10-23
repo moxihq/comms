@@ -1,13 +1,12 @@
-"""The Claude shim's frames to the daemon, design §3.3.3 and §3.4 ([B8], slice `shim`).
+"""The Claude shim's frames to the daemon.
 
 `ready` carries the SessionStart's `source`; a SessionStart before the bind is owed and
-goes once after the register answer ([R5]); the idle tick sends no `kind` ([R59]); every
-turn end sends `kind=turn` with `handled` and `unhandled`, after the cursor write
-([R57]); a StopFailure's ids are `unhandled` (fold-1 MINOR-3); the cursor is clamped
-with its high-water mark ([R3]); a digest's ids leave the held set exactly, never by
-comparison ([R19]).
+goes once after the register answer; the idle tick sends no `kind`; every turn end sends
+`kind=turn` with `handled` and `unhandled`, after the cursor write; a StopFailure's ids
+are `unhandled`; the cursor is clamped with its high-water mark; a digest's ids leave the
+held set exactly, never by comparison.
 
-The daemon side of these frames is another slice's, so the shim talks to a fake daemon
+The daemon side of these frames is tested elsewhere, so the shim talks to a fake daemon
 socket here: it answers `register`, records every frame with the cursor as it stood when
 the frame arrived, and pushes `deliver` frames as the daemon's release would.
 """
@@ -177,7 +176,7 @@ def test_a_session_start_without_a_source_sends_a_ready_without_one(daemon, make
 
 def test_a_ready_before_the_bind_is_owed_and_sent_once_after_the_register(
         daemon, make_shim):
-    """[R5]: SessionStart beats the bind. The shim keeps it and sends it right after its
+    """SessionStart beats the bind. The shim keeps it and sends it right after its
     register is answered, once; a later reconnect does not send it again."""
     s = make_shim(start=False)
     shim_drive.ready(s, "startup", SESSION)
@@ -209,7 +208,7 @@ def test_a_ready_during_an_outage_is_owed_to_the_next_register(daemon, make_shim
 # ---------------------------------------------------------------- the idle tick
 
 def test_the_idle_tick_sends_no_kind_even_after_a_prompt(daemon, make_shim):
-    """[R59]: the tick that flushes into an idle session is not a turn."""
+    """The tick that flushes into an idle session is not a turn."""
     s = make_shim()
     s.note_turned()                                     # the session has had a turn
     deliver(daemon, s, 101)
@@ -239,7 +238,7 @@ def test_a_stop_reports_the_digest_handled_after_the_cursor_write(daemon, make_s
 
 def test_a_stop_failure_reports_the_digest_unhandled_and_the_cursor_stays(
         daemon, make_shim):
-    """Fold-1 MINOR-3: a failed turn's ids are `unhandled`, StopFailure included."""
+    """A failed turn's ids are `unhandled`, StopFailure included."""
     s = make_shim()
     deliver(daemon, s, 101)
     shim_drive.turn_ended(s)                            # flushes 101
@@ -270,7 +269,7 @@ def test_the_failed_ids_are_held_for_the_cursor_write_and_not_after_the_frame(
     assert turn["unhandled"] == ["110"] and cursors.read(IDENT) == "105"
 
 
-# ---------------------------------------------------------------- the clamp ([R3])
+# ---------------------------------------------------------------------- the clamp
 
 def test_the_cursor_never_passes_a_held_id_and_catches_up_to_the_high_water_mark(
         daemon, make_shim):
@@ -302,7 +301,7 @@ def test_the_clamp_writes_nothing_while_the_lowest_held_id_is_the_first(daemon,
 # ---------------------------------------------------------------- the held-id prune
 
 def test_a_completing_digest_prunes_exactly_its_own_ids(daemon, make_shim):
-    """[R19]: 105 queued below a completing digest through 110 stays held, so a second
+    """105 queued below a completing digest through 110 stays held, so a second
     hand of it after a reconnect is not taken twice."""
     s = make_shim()
     deliver(daemon, s, 110)
@@ -473,8 +472,8 @@ def restart(rig):
 
 def test_a_name_refusal_at_the_initial_bind_waits_and_any_other_is_still_an_exit(rig):
     """At the seam tolerate passes through, `start()` itself. An unreachable daemon is swallowed. A daemon that named a holder of THIS
-    name leaves the launch waiting for it, holding nothing it can send as (operator
-    ruling, 2026-10-07); any other refusal still raises, and nothing retries it."""
+    name leaves the launch waiting for it, holding nothing it can send as; any other
+    refusal still raises, and nothing retries it."""
     rig.shim(slot=1, name="reviewer", scope="proj-a")
     loser = rig.shim(start=False, slot=2, name="reviewer", scope="proj-a",
                      autoreconnect=True, backoff=itertools.repeat(0.02))
@@ -636,9 +635,9 @@ def test_the_inject_file_seam_reports_a_timeout_as_offline_not_refused(
 
 
 def test_a_round_trip_that_never_landed_leaves_no_replay_flag_armed(rig):
-    """`connect()` arms `replaying` before the round trip. Nothing reset it when the
-    round trip failed, so a tolerated launch left it True for the life of the session --
-    inert on the claude path today, and a trap for the next test author, since the
+    """`connect()` arms `replaying` before the round trip. If nothing reset it when the
+    round trip failed, a tolerated launch would leave it True for the life of the
+    session -- inert on the claude path, and a trap for a test author, since the
     module's own comment calls it test visibility."""
     rig.daemon.stop()
     plain = rig.shim(start=False, slot=3, name="planner", scope="proj-a")

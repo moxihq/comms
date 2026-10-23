@@ -1,9 +1,9 @@
 """The `attributed_message` read: one message with its author as the daemon attributes it.
 
-Round acme/notify-call [B1]: "a read-only daemon query returning one message's
-attributed author (name, tier, verified or unverified) and its recipients, read by the
-daemon's own attribution code." The notify service asks it for the message an agent
-registers (design §2 step 4), and takes the item's sender and text from the answer.
+A read-only daemon query returns one message's attributed author (name, tier, verified
+or unverified) and its recipients, read by the daemon's own attribution code. A program
+outside comms asks it for a message an agent points it at, and takes the sender and text
+from the answer.
 
 Every rig test here runs on the mock and on the local backend (`BOTH_BACKENDS`).
 """
@@ -159,7 +159,7 @@ def test_a_multi_recipient_send_names_every_recipient(rig):
 
 
 def test_a_bare_operator_tag_resolves_to_the_global_binding_that_holds_it(rig, bind):
-    """`resolved` is the daemon's own resolve, by the one rule ([C10], §7.10.2): a bare
+    """`resolved` is the daemon's own resolve, by the one rule: a bare
     `operator` is the global identity whoever wrote it, so from proj-a it lands on the
     global binding, and an explicit `operator@proj-a` is taken as written."""
     rig.shim(**PLANNER)
@@ -249,17 +249,17 @@ def test_the_read_changes_nothing(rig):
 def test_any_socket_caller_may_ask_and_every_caller_gets_the_same_answer(rig):
     """The caller rule: as for `record_message`, `session` and `owner`, any process that
     can open the daemon's 0600 socket. A connection holding no binding and one holding
-    a send-only binding (as the notify service will) get the same answer."""
+    a send-only binding (as such a program may) get the same answer."""
     rig.shim(**PLANNER)
     reviewer = rig.shim(**REVIEWER)
     msg = send(rig, R, "same for everyone")
     wait_for_queue(reviewer, 1)
-    code = provision.send_only_main(["notify"], gateway=rig.gateway, store=rig.store,
+    code = provision.send_only_main(["relay"], gateway=rig.gateway, store=rig.store,
                                     out=lambda _l: None)
     assert code == 0
-    srv = ClaimServer("notify", "global", kind="send-only", arm=True).start()
+    srv = ClaimServer("relay", "global", kind="send-only", arm=True).start()
     try:
-        assert wait_until(lambda: "notify" in rig.daemon.bindings), srv.refusal
+        assert wait_until(lambda: "relay" in rig.daemon.bindings), srv.refusal
         held = srv._client.attributed_message(msg.id)
     finally:
         srv.stop()

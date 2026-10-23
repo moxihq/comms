@@ -104,8 +104,8 @@ class Forbidden(GatewayError):
 class Fatal(GatewayError):
     """A failure that retrying cannot fix (4004 auth failed, 4014 disallowed intents).
 
-    Surfaced loudly and never retry-looped: a retry loop against a fatal close code is
-    how a build spends a day looking connected while nothing arrives.
+    Surfaced loudly and never retry-looped: a retry loop against a fatal close code
+    looks connected while nothing arrives.
     """
 
 

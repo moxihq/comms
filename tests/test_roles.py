@@ -1,12 +1,12 @@
 """The token store's role holders: comms' own four, and the ones a box names in
-`[secrets] roles` (design §7.3, [R72]).
+`[secrets] roles`.
 
 comms keeps its own roles in code: `reader` and `daemon` (one holder, the daemon
 process), `operator` (the local backend's operator lane) and `provisioner` (which exists
 only to be refused). A role the box adds is a name in `[secrets] roles`; it keys under
 its own name, in the store and as a holder string, and a role the config does not list
 is unknown, with no store path, like any name the store has never heard of. The names
-below (`calendar`, `voice-loop`) are placeholders for whatever modules a box keeps
+below (`calendar`, `mailer`) are placeholders for whatever modules a box keeps
 credentials for.
 """
 
@@ -19,12 +19,12 @@ from conftest import write_config
 
 from moxi_comms import config, secrets, tokens
 
-ADDED = ("calendar", "voice-loop")
+ADDED = ("calendar", "mailer")
 
 
 @pytest.fixture
 def listed():
-    write_config(None, '[secrets]\nroles = ["calendar", "voice-loop"]\n')
+    write_config(None, '[secrets]\nroles = ["calendar", "mailer"]\n')
 
 
 # ------------------------------------------------------------------- unlisted: unknown
@@ -48,8 +48,8 @@ def test_an_unlisted_role_is_unknown(role, tmp_path):
 def test_listing_one_role_leaves_the_others_unknown(tmp_path):
     write_config(None, '[secrets]\nroles = ["calendar"]\n')
     assert tokens.owner_for_role("calendar").parts == ("calendar",)
-    assert tokens.owner_for_role("voice-loop").parts == ()
-    assert tokens.owner_of_holder("comms/voice-loop") is None
+    assert tokens.owner_for_role("mailer").parts == ()
+    assert tokens.owner_of_holder("comms/mailer") is None
 
 
 # --------------------------------------------------------------------- listed: a holder
@@ -93,14 +93,14 @@ def test_a_listed_roles_keys_round_trip_0600_and_a_second_leaves_the_first(liste
 def test_the_chain_resolves_a_listed_roles_credential(listed, tmp_path):
     """How a module reads its credential: the env step under its key, else the store
     keyed by the role's owner."""
-    owner = tokens.owner_for_role("voice-loop")
+    owner = tokens.owner_for_role("mailer")
     store = tokens.TokenStore(root=tmp_path)
-    store.write_secret(owner, "voice-loop/bot-token", "FROM-THE-STORE")
+    store.write_secret(owner, "mailer/bot-token", "FROM-THE-STORE")
     chain = secrets.build(["env", "store"], env={}, store=store)
-    assert chain.get("voice-loop/bot-token", owner=owner)["value"] == "FROM-THE-STORE"
-    env = {secrets.env_key("voice-loop/bot-token"): "FROM-THE-ENVIRONMENT"}
+    assert chain.get("mailer/bot-token", owner=owner)["value"] == "FROM-THE-STORE"
+    env = {secrets.env_key("mailer/bot-token"): "FROM-THE-ENVIRONMENT"}
     chain = secrets.build(["env", "store"], env=env, store=store)
-    assert chain.get("voice-loop/bot-token", owner=owner)["value"] == \
+    assert chain.get("mailer/bot-token", owner=owner)["value"] == \
         "FROM-THE-ENVIRONMENT"
 
 
@@ -153,7 +153,7 @@ def test_the_provisioner_stays_fenced_whatever_the_config_says(listed, tmp_path)
     assert not (tmp_path / "store").exists()
 
 
-def test_no_fleet_role_is_named_in_code():
-    """The roles a box adds live in its config, not in comms (design §7.3, RULE D2)."""
-    for gone in ("FLEET_ROLES", "ROLE_VOICE_LOOP", "ROLE_REMOTE_EAR", "ROLE_CALENDAR"):
-        assert not hasattr(tokens, gone), gone
+def test_comms_names_only_its_own_four_roles_in_code():
+    """The roles a box adds live in its config; comms names only its own four in code."""
+    assert {n for n in dir(tokens) if n.startswith("ROLE_")} == {
+        "ROLE_READER", "ROLE_DAEMON", "ROLE_PROVISIONER", "ROLE_OPERATOR"}

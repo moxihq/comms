@@ -65,7 +65,7 @@ def test_interface_1_holds_its_names():
     assert api.NAME_RE.match("lead") and not api.NAME_RE.match("a b")
 
 
-def test_the_send_signature_is_the_designs():
+def test_the_send_and_check_signatures():
     for fn in (api.send, api.check):
         params = inspect.signature(fn).parameters
         assert list(params) == ["sender", "to", "text", "posture", "reply_to", "new",
@@ -374,7 +374,7 @@ def test_roster_and_owner_carry_declared_directors(rig):
     assert (agent.slot, agent.adapter, agent.directors) == (2, "claude-shim",
                                                             ("main@proj-a",))
     assert {s.qualified for s in got.standing} >= {"main@proj-a", "main@proj-b",
-                                                   "steward"}
+                                                   "herald"}
     assert (owner.identity, owner.adapter, owner.directors) == (
         "reviewer", "claude-shim", ("main@proj-a",))
     assert api.owner("no-such-session").identity is None

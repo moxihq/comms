@@ -58,8 +58,8 @@ def test_a_slot_stamp_without_a_name_is_no_claim_at_all(rig):
 
 
 def test_a_non_numeric_slot_stamp_is_refused_as_a_stamp(rig):
-    """A broken stamp is a stamp, and a stamp alone sends under no identity (§3.3,
-    [R16]): the refusal names the identity the stamp claims and the claim socket a session
+    """A broken stamp is a stamp, and a stamp alone sends under no identity: the
+    refusal names the identity the stamp claims and the claim socket a session
     sends through. Not a name-only fallback, and not "no identity": a name is right
     there."""
     rig.shim(slot=2, name="reviewer", scope="proj-a")
@@ -114,14 +114,14 @@ def test_send_when_the_daemon_is_down_says_comms_offline(rig):
 
 def test_agents_lists_the_names_you_can_message(rig):
     """The default rendering is the AGENT-facing one: qualified name, tier, adapter,
-    one row per messageable binding, and nothing else ([F30]): no seat (a slot is
-    webhook-bundle capacity the operator provisions), no waiting mail, no voice line."""
+    one row per messageable binding, and nothing else: no seat (a slot is
+    webhook-bundle capacity the operator provisions) and no waiting mail."""
     rig.shim(slot=1, name="planner", scope="proj-a")
     rig.shim(slot=2)
     code, out = rig.cli(["send", "--posture", "none", "--new-name", "curator@proj-a",
                          "waiting"], slot=1, name="planner", scope="proj-a")
     assert code == 0, out
-    # The mail is counted in the answer's `waiting` (§3.11, §7.3), never in the default view.
+    # The mail is counted in the answer's `waiting`, never in the default view.
     assert wait_until(lambda: "curator@proj-a" in
                       (rig.daemon._query({"kind": "agents"}).get("waiting") or {}))
     code, out = rig.cli(["agents"], slot=1)
@@ -233,7 +233,7 @@ def _old_conference_room(rig):
             cred = rig.gateway.create_webhook(channel_id, name or f"slot-{slot_id}", key)
             _keep(rig.store, owner, cred.secret_id or key, cred)
             conn.execute("INSERT INTO webhooks(webhook_id, slot_id, agent_name, agent_scope, "
-                         "channel_id, bws_secret_id, created_at) VALUES (?,?,?,?,?,?,?)",
+                         "channel_id, secret_id, created_at) VALUES (?,?,?,?,?,?,?)",
                          (cred.webhook_id, slot_id, name, scope, channel_id,
                           cred.secret_id or key, directory.now()))
             creds[name or slot_id] = cred
@@ -244,7 +244,7 @@ def _old_conference_room(rig):
 
 
 def test_a_reply_posts_in_names_whatever_room_the_original_sits_in(rig):
-    """[R27]: one room. A reply to a verified message an older install's `#conference`
+    """One room. A reply to a verified message an older install's `#conference`
     holds still posts in `#names`, and says so; the sender's `#conference` webhook, which
     that install also holds, is never spent."""
     from moxi_comms.mock_gateway import NO_MENTIONS
@@ -528,11 +528,11 @@ def test_a_global_claim_keeps_its_scope_and_posts_from_its_own_bundle(rig):
     own bundle is what makes its messages verifiable forever."""
     rig.shim(slot=2, name="reviewer", scope="proj-a")
     code, out = rig.cli(["send", "--posture", "none", "reviewer@proj-a", "from global"],
-                        slot=1, name="steward", env={"MOXI_COMMS_GLOBAL": "1"})
+                        slot=1, name="herald", env={"MOXI_COMMS_GLOBAL": "1"})
     assert code == 0, out
     posted = rig.gateway.history(rig.names_channel)[-1]
-    assert posted.author_display == "steward", "global renders bare, not steward@proj-a"
-    assert posted.author_id == rig.agent_webhook_id("steward", "global")
+    assert posted.author_display == "herald", "global renders bare, not herald@proj-a"
+    assert posted.author_id == rig.agent_webhook_id("herald", "global")
     assert posted.author_id != rig.slot_webhook_id(1), "standing beats the claimed slot"
 
     code, out = rig.cli(["send", "--posture", "none", "reviewer@proj-a", "from proj-b"],
@@ -570,7 +570,7 @@ def test_a_bare_name_known_only_in_another_scope_is_the_global_name(rig):
     before = len(rig.gateway.history(rig.names_channel))
 
     # The global reviewer has never been bound, so the bare name is refused without
-    # --new-name (§7.6 [R76], §7.10.1): proj-b's binding says nothing about it
+    # --new-name: proj-b's binding says nothing about it
     code, out = rig.cli(["send", "--posture", "none", "reviewer", "meant for proj-b's reviewer"],
                         slot=1, name="planner", scope="proj-a")
     assert code == 2, out
@@ -626,7 +626,7 @@ def test_the_policy_table_is_refused_when_malformed():
             config.load()
 
 
-@pytest.mark.parametrize("key", ["never_held", "next_turn_refused", "voice_companion"])
+@pytest.mark.parametrize("key", ["never_held", "next_turn_refused"])
 def test_a_removed_policy_key_is_refused_with_its_fix(key):
     """A config file that still names a removed `[policy]` key fails with what to do,
     not as an unknown key."""
@@ -686,7 +686,7 @@ def test_a_config_that_does_not_load_refuses_the_verb(rig):
 
 
 def test_a_message_over_the_one_cap_is_refused_with_the_pointer_text(rig):
-    """[R23], [R24]: one cap, 16,000, on both backends; over it nothing is sent, before
+    """One cap, 16,000, on both backends; over it nothing is sent, before
     any credential, and `--check` refuses the same way. Comms does not split."""
     from moxi_comms import gateway
 
@@ -713,8 +713,8 @@ def test_a_message_over_the_one_cap_is_refused_with_the_pointer_text(rig):
 
 
 def test_comms_help_names_no_owner_and_its_braces_name_every_other_verb():
-    """`owner` is a keep-warm caller's query, not a verb an agent
-    reads about. It leaves the braces and the rows; it still parses and runs."""
+    """`owner` is a query for a launcher that keeps sessions warm, asking whether a
+    session it may nudge has an ask out; it is not a verb an agent reads about. It leaves the braces and the rows; it still parses and runs."""
     from moxi_comms import cli
 
     parser = cli.build_parser()

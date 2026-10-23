@@ -81,17 +81,16 @@ def test_standing_rows_are_read_per_claim_not_from_a_boot_cache(rig):
 
 
 def test_global_claim_is_unscoped(rig):
-    s = rig.shim(slot=1, name="steward", global_=True)
-    assert s.identity == "steward" and s.tier == "standing"
+    s = rig.shim(slot=1, name="herald", global_=True)
+    assert s.identity == "herald" and s.tier == "standing"
 
 
 def test_a_tag_names_one_identity_whatever_the_scope_asking(rig):
-    """[C10], §7.10.1: the tag alone decides the identity. A bare name is the global
-    identity from every scope, `x@S` is x@S from every scope, and the scope in the frame
-    plays no part. (Before, a bare name went to the asker's own scope first.)"""
+    """The tag alone decides the identity. A bare name is the global identity from every
+    scope, `x@S` is x@S from every scope, and the scope in the frame plays no part."""
     rig.shim(slot=1, name="main", scope="proj-a")
     rig.shim(slot=2, name="main", scope="proj-b")
-    rig.shim(slot=3, name="steward", global_=True)
+    rig.shim(slot=3, name="herald", global_=True)
     c = client()
     try:
         for asking in ("proj-a", "proj-b", "global", None):
@@ -102,8 +101,8 @@ def test_a_tag_names_one_identity_whatever_the_scope_asking(rig):
             # a bare name is the global identity, even while main@<asking> is bound
             r = c.query("resolve", name="main", **frame)
             assert r["qualified"] == "main" and r["bound"] is False and r["deferred"] is True
-            r = c.query("resolve", name="steward", **frame)
-            assert r["qualified"] == "steward" and r["bound"] is True
+            r = c.query("resolve", name="herald", **frame)
+            assert r["qualified"] == "herald" and r["bound"] is True
             # nothing bound: defer as the global identity, never as <asking>'s
             r = c.query("resolve", name="ghost", **frame)
             assert (r["qualified"], r["tier"], r["deferred"]) == ("ghost", "chosen", True)
@@ -116,7 +115,7 @@ def test_unbound_standing_name_resolves_to_deferral_not_an_error(rig):
     try:
         r = c.query("resolve", name="main@proj-a")
         assert r["tier"] == "standing" and r["deferred"] is True and r["bound"] is False
-        r = c.query("resolve", name="steward", scope="proj-a")
+        r = c.query("resolve", name="herald", scope="proj-a")
         assert r["tier"] == "standing" and r["deferred"] is True and r["bound"] is False
     finally:
         c.close()
@@ -160,20 +159,6 @@ def test_unknown_adapter_kind_is_refused(rig):
             c.register(slot=1, name="x", scope="proj-a", adapter="telepathy")
     finally:
         c.close()
-
-
-@pytest.mark.parametrize("kind", ["driver", "speech"])
-def test_the_removed_kinds_are_unknown(rig, kind):
-    """`driver` and `speech` were the operator's own modules' kinds; they are not built in
-    (they come back only through an add-on). A register under either is refused at the
-    frame like any unknown kind, and nothing binds."""
-    c = client()
-    try:
-        with pytest.raises(DaemonError, match="unknown adapter kind"):
-            c.register(slot=1, name="voice", scope="proj-a", adapter=kind)
-    finally:
-        c.close()
-    assert "voice@proj-a" not in rig.daemon.bindings
 
 
 def test_register_still_refuses_an_unknown_adapter_kind(rig):

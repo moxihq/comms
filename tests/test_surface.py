@@ -1,11 +1,10 @@
-"""The CLI and text surface of comms/refine §7 ([B8] surface slice): the `optional`
-posture ([F18], §7.1), `moxi comms reply` to your own message ([F31], §7.4), the start text
-([F34], §7.5), `--new-name` ([F32], §7.6), `--check`'s NOTEs and `moxi comms reply --check`
-([F33], §7.7), and the `held` help entry ([I7], §7.9).
+"""The CLI and text surface: the `optional` posture, `moxi comms reply` to your own
+message, the start text, `--new-name`, `--check`'s NOTEs and `moxi comms reply --check`,
+and the `held` help entry.
 
 The never-bound check reads `ever_bound` (and `seen_as`) off the daemon's resolve
-answer. The daemon's half (`Journal.ever_bound`, the resolve answer's field) is the
-names slice's; here the daemon is made to give the answer the design defines.
+answer. The daemon's half (`Journal.ever_bound`, the resolve answer's field) is tested
+with the names; here the daemon is made to give the answer chosen for each test.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ from moxi_comms.provision import add_standing
 
 from test_posture_intent import make_ref, open_root, posts, raw_post  # noqa: F401
 
-# Global identities: a bare tag is the global identity (§7.10.1), and a session with no
+# Global identities: a bare tag is the global identity, and a session with no
 # scope binds global.
 PLANNER = dict(slot=1, name="planner")
 REVIEWER = dict(slot=2, name="reviewer")
@@ -66,7 +65,7 @@ def trio(rig):
     return rig.shim(**PLANNER), rig.shim(**REVIEWER), rig.shim(**CRITIC)
 
 
-# =========================================================== §7.1 the optional posture
+# ================================================================ the optional posture
 
 def test_the_token_parses_and_writes_in_the_posture_slot():
     ml = machine_line.parse(f"::to {R} re:9 [reply-optional]\nhi")
@@ -99,7 +98,7 @@ def test_a_new_send_writes_reply_optional(rig, pair):
     assert out.splitlines()[0].startswith("sent ") and "Open thread" not in out
 
 
-# ---- the reply table (§7.1.2): the optional referent and the optional column
+# ---- the reply table: the optional referent and the optional column
 
 #: The referent's row -> what each `--posture` gives on a reply to it.
 OPTIONAL_REFERENT = {
@@ -129,7 +128,7 @@ def test_a_reply_to_an_optional_message_takes_the_once_row(rig, pair, typed):
         assert len(posted(rig)) == before
 
 
-#: The optional column of §7.1.2, by referent row (`make_ref`'s kinds).
+#: The reply table's optional column, by referent row (`make_ref`'s kinds).
 OPTIONAL_COLUMN = {"no-reply": "refused", "in-thread": "optional",
                    "once-closed": "optional", "closed": "refused", "once": "optional",
                    "other": "optional"}
@@ -222,7 +221,7 @@ def payload(name=P, *, tier="chosen", attribution="verified", posture="optional"
     (payload(), ()),                                       # a peer
     (payload(), (P,)),                                     # a declared director
     (payload("operator", tier="operator"), ()),            # the operator, by name and tier
-    (payload("voice", tier="operator"), ()),               # the operator's tier alone
+    (payload("alice", tier="operator"), ()),               # the operator's tier alone
 ])
 def test_an_optional_message_owes_nothing(p, directors):
     assert owed.owing_branch(p, directors) is None
@@ -279,7 +278,7 @@ def test_the_new_forms_resolve(form, term):
     assert glossary.lookup(form).term == term
 
 
-# ========================================================= §7.9 the held help entry
+# ============================================================== the held help entry
 
 def test_the_held_entry_follows_catch_up_with_its_text():
     terms = [e.term for e in glossary.TERMS]
@@ -298,9 +297,9 @@ def test_the_held_entry_follows_catch_up_with_its_text():
         assert word not in entry.text
 
 
-# ============================================================== §7.5 the start text
+# =================================================================== the start text
 
-def test_the_start_text_is_the_ruled_block():
+def test_the_start_text_is_the_exact_block():
     assert context.CONTEXT_BLOCK == (
         'You can message other agents with `moxi comms send <name> --posture <posture> "text"`. '
         "`--posture`: `none` for no reply, `optional` for a reply only if you have "
@@ -314,7 +313,7 @@ def test_the_start_text_is_the_ruled_block():
     assert len([s for s in context.CONTEXT_BLOCK.split(". ") if s.strip()]) == 7
 
 
-# ==================================================== §7.4 a reply to your own message
+# ========================================================= a reply to your own message
 
 def test_a_reply_to_your_own_message_goes_to_its_recipient(rig, pair):
     planner, reviewer = pair
@@ -428,10 +427,10 @@ def test_the_reply_standing_help_names_its_recipients():
             "no standing row") in " ".join(r.format_help().split())
 
 
-# ================================================================ §7.6 --new-name
+# ===================================================================== --new-name
 
 def journal(rig, monkeypatch, *, seen=(), seen_as=None, present=True):
-    """The daemon's resolve answer carries `ever_bound` as §7.6 defines it: True for a
+    """The daemon's resolve answer carries `ever_bound`: True for a
     bound identity, else whether `seen` holds it. `present=False` is a journal that
     could not be read (no field). `seen_as` adds that field to every never-bound
     answer. It replaces the daemon's own journal answer."""
@@ -518,7 +517,7 @@ def test_a_standing_identity_never_bound_passes(rig, pair, monkeypatch):
 
 
 def test_the_operator_is_known_on_a_box_provisioned_by_default(rig):
-    """§7.6: `moxi comms send operator` keeps working on a box with no voice. A box
+    """`moxi comms send operator` works on a box where the operator never bound. A box
     provisioned by default writes no `operator` agents row and nothing has bound
     `operator`, so the real journal has never seen it: the send still goes."""
     rig.shim(**PLANNER)
@@ -552,7 +551,7 @@ def test_comms_reply_is_not_checked(rig, pair, monkeypatch):
 
 
 def test_the_refusal_names_the_identities_of_that_name_that_exist(rig, pair, monkeypatch):
-    """Verification MINOR 4: a never-bound identity whose name the journal knows in other
+    """A never-bound identity whose name the journal knows in other
     scopes says which, so `--new-name` is not the only cure on offer."""
     journal(rig, monkeypatch, seen_as=["newbie@proj-b"])
     code, out = rig.cli(["send", "newbie@global", "x", "--posture", "none"], **PLANNER)
@@ -577,7 +576,7 @@ def test_the_new_name_help_and_reply_has_none():
     assert "--new-name" not in sub["reply"].format_help()
 
 
-# ================================================================== §7.7 --check
+# ======================================================================= --check
 
 def test_a_check_to_an_unbound_name_prints_the_deferred_note(rig, pair):
     argv = ["send", "newbie", "x", "--posture", "none", "--new-name"]

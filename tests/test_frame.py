@@ -139,10 +139,10 @@ def test_a_reply_says_re_and_the_full_id():
     assert "replying to" not in line
 
 
-def test_a_payload_with_the_removed_marks_frames_as_unmarked():
-    """A pre-round daemon's payload may still carry `speaker`, `operator_words` and
-    `via_phone`; the frame line shows none of them."""
-    line = frame_line(payload(speaker=True, operator_words=True, via_phone=True))
+def test_a_payload_key_the_frame_does_not_read_adds_nothing():
+    """A payload may carry keys the frame builder does not read, from an older or newer
+    daemon; the frame line shows none of them."""
+    line = frame_line(payload(colour="red", urgent=True, extra_note="ignored"))
     assert line == "[comms] from planner@proj-a · msg 101"
 
 
@@ -193,7 +193,7 @@ def test_the_audience_sits_between_re_and_the_posture():
                     "audience: operator · [reply-once]")
 
 
-def test_the_mark_reaches_the_digest_the_driver_shares():
+def test_the_mark_reaches_the_digest():
     digest = render_digest([payload(audience="operator", audience_source="written")])
     assert "· audience: operator" in digest
 
@@ -355,13 +355,13 @@ def test_the_header_note_SUPPRESSES_the_per_frame_marks_inside_that_digest():
 def test_the_other_deviation_marks_still_render_inside_a_catch_up():
     """Only the attribution mark is a batch property. Tier is per-sender and stays."""
     batch = [payload(message_id="1", backlog=True,
-                     author=author("steward", "standing", "labeled")),
+                     author=author("herald", "standing", "labeled")),
              unverified(message_id="2"),
              payload(message_id="3", backlog=True,
                      author=author("agent-9", "ephemeral", "labeled"))]
     digest = render_digest(batch, clock=at(0))
     assert "attribution is unverified in replay" in digest.splitlines()[0]
-    assert "[comms] from steward (standing) · msg 1" in digest
+    assert "[comms] from herald (standing) · msg 1" in digest
     assert "[comms] from planner@proj-a · msg 2" in digest
     assert "[comms] from agent-9 (ephemeral) · msg 3" in digest
     assert "unverified" not in digest.split("==\n", 1)[1], "the header said it"
@@ -374,14 +374,14 @@ def test_a_backlog_batch_of_MIXED_verification_gets_NO_note_and_keeps_its_marks(
     identically -- the reader could no longer tell them apart at all, which is the whole
     job of the mark. So: nothing in the header, and every frame speaks for itself."""
     batch = [payload(message_id="1", backlog=True,
-                     author=author("steward", "standing")),          # verified
+                     author=author("herald", "standing")),          # verified
              unverified(message_id="2"),
              payload(message_id="3", backlog=True,
                      author=author("agent-9", "ephemeral", "labeled"))]
     digest = render_digest(batch, clock=at(0))
     assert digest.splitlines()[0] == "== comms catch-up: 3 message(s) (oldest 0m ago) =="
     assert "attribution is unverified in replay" not in digest
-    assert "[comms] from steward (standing) · msg 1" in digest
+    assert "[comms] from herald (standing) · msg 1" in digest
     assert "[comms] from planner@proj-a (unverified) · msg 2" in digest
     assert "[comms] from agent-9 (ephemeral, unverified) · msg 3" in digest
 
@@ -390,7 +390,7 @@ def test_an_all_verified_catch_up_carries_no_note_and_no_marks():
     """Standing senders stay verified through replay, so the silence is honest: this
     batch really was proven, and a blanket "replay is unverified" would have lied."""
     batch = [payload(message_id="1", backlog=True,
-                     author=author("steward", "standing")),
+                     author=author("herald", "standing")),
              payload(message_id="2", backlog=True,
                      author=author("main@proj-a", "standing"))]
     digest = render_digest(batch, clock=at(0))
@@ -427,12 +427,12 @@ def test_a_VERIFIED_backlog_beside_an_unverified_live_arrival_gets_no_note():
     frame here was proven; the only unverified sender is the live one, and it says so on
     its own line."""
     batch = [payload(message_id="1", backlog=True,
-                     author=author("steward", "standing")),
+                     author=author("herald", "standing")),
              payload(message_id="2", author=author(attribution="labeled"))]
     digest = render_digest(batch, clock=at(0))
     assert digest.splitlines()[0] == "== comms catch-up: 2 message(s) (oldest 0m ago) =="
     assert "in replay" not in digest
-    assert "[comms] from steward (standing) · msg 1" in digest
+    assert "[comms] from herald (standing) · msg 1" in digest
     assert "[comms] from planner@proj-a (unverified) · msg 2" in digest
 
 

@@ -41,7 +41,7 @@ PLANNER = dict(slot=1, name="planner")
 REVIEWER = dict(slot=2, name="reviewer")
 CRITIC = dict(slot=3, name="critic")
 OPERATOR = dict(slot=4, name="operator", env={"MOXI_COMMS_GLOBAL": "1"})
-THINKER = dict(slot=5, name="thinker", env={"MOXI_COMMS_GLOBAL": "1"})
+ARCHIVIST = dict(slot=5, name="archivist", env={"MOXI_COMMS_GLOBAL": "1"})
 
 P, R, C = "planner", "reviewer", "critic"
 HOUR = 3600
@@ -218,7 +218,7 @@ def test_keyword_calls_write_todays_bytes_and_positional_ones_fail():
         machine_line.format_line(["a", "b"], True, "123")
 
 
-def test_bodies_with_voices_args_gives_todays_bytes(rig):
+def test_bodies_with_a_bare_namespace_gives_the_plain_bytes(rig):
     args = SimpleNamespace(text="hello")
     ctx = cli.Context(gateway=rig.gateway, env={})
     assert cli._bodies(args, ctx, [P], None) == [f"::to {P}\nhello"]
@@ -442,7 +442,7 @@ def test_the_walk_finds_the_root_from_deep_in_a_chain(rig, pair):
 def test_a_root_without_open_binds_no_limit(rig, pair, whole_clock, root_kind):
     rig.shim(slot=4, name="operator", global_=True)
     if root_kind == "unmarked":
-        root = rig.post_from_slot(1, [R], "from before the round", display=P)
+        root = rig.post_from_slot(1, [R], "from an older comms", display=P)
     elif root_kind == "speaker":
         root = raw_post(rig, PLANNER["slot"], P, f"::to {R} [speaker]\nall")  # an old one
     else:
@@ -995,14 +995,14 @@ def test_a_reply_to_the_operators_no_reply_is_refused(rig, op):
     assert code == 2 and "from operator is marked [no reply]" in tail(out)
 
 
-def his_once_in_a_closed_thread(rig, how, *, phone=False):
+def his_once_in_a_closed_thread(rig, how, *, gateway=False):
     """planner opens a thread to the operator and reviewer; the operator asks planner
-    something in it (voice's forwarder and the phone gateway both pass once);
+    something in it (his own session and a gateway outside every session both pass once);
     reviewer then closes the thread by its cap or with none."""
     root = open_root(rig, *(["--cap", "2"] if how == "cap" else []),
                      to="operator,reviewer")
-    if phone:
-        code, out = rig.cli(phone_argv(root.id, P, "[phone] which one?"),
+    if gateway:
+        code, out = rig.cli(gateway_argv(root.id, P, "[gateway] which one?"),
                             env=operator_env(rig))
         assert code == 0, out
         his = rig.gateway.get_message(sent_id(out))
@@ -1018,19 +1018,18 @@ def his_once_in_a_closed_thread(rig, how, *, phone=False):
 
 
 @pytest.mark.parametrize("how", ["cap", "none"])
-def test_an_agents_answer_to_the_operators_voice_once_posts_in_a_closed_thread(rig, op,
-                                                                              how):
+def test_an_agents_answer_to_the_operators_once_posts_in_a_closed_thread(rig, op, how):
     his = his_once_in_a_closed_thread(rig, how)
     msg, _ = posts(rig, PLANNER, ["reply", his.id, "the first"])
     assert (zero(msg).posture, zero(msg).reply_to) == ("none", his.id)
 
 
 @pytest.mark.parametrize("how", ["cap", "none"])
-def test_an_agents_answer_to_the_operators_phone_once_posts_in_a_closed_thread(rig, op,
-                                                                              how):
+def test_an_agents_answer_to_the_operators_gateway_once_posts_in_a_closed_thread(rig, op,
+                                                                                how):
     if rig.backend != "local":
         pytest.skip("the credentialled operator lane exists on the local backend alone")
-    his = his_once_in_a_closed_thread(rig, how, phone=True)
+    his = his_once_in_a_closed_thread(rig, how, gateway=True)
     msg, _ = posts(rig, PLANNER, ["reply", his.id, "the first"])
     assert (zero(msg).posture, zero(msg).reply_to) == ("none", his.id)
 
@@ -1043,7 +1042,7 @@ STAMP = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(NOW - 300))
 
 def payload(name=P, *, tier="chosen", attribution="verified", posture="open",
             text="x", mid="1000", reply_to=None, **old):
-    """A delivered payload. `old` carries keys a pre-round daemon still sends
+    """A delivered payload. `old` carries keys an older daemon may still send
     (`speaker`, `operator_words`), which nothing reads."""
     return {"message_id": mid, "author": {"name": name, "tier": tier,
                                           "attribution": attribution},
@@ -1055,7 +1054,7 @@ def payload(name=P, *, tier="chosen", attribution="verified", posture="open",
     (payload("operator", tier="operator"), (), owed.BRANCH_OPERATOR),
     (payload("operator", tier="operator", posture="once"), (), owed.BRANCH_OPERATOR),
     (payload("operator", tier="standing", posture="once"), (), owed.BRANCH_OPERATOR),
-    (payload("thinker", operator_words=True), (), None),      # branch 4 is gone
+    (payload("archivist", operator_words=True), (), None),
     (payload(C, operator_words=True), (), None),
     (payload(P), (P,), None),
     (payload(P, posture="once"), (P,), owed.BRANCH_DIRECTOR),
@@ -1065,9 +1064,9 @@ def payload(name=P, *, tier="chosen", attribution="verified", posture="open",
     (payload(P, posture="once", attribution="labeled"), (P,), None),
     (payload("operator", tier="operator", posture="none"), (), None),
     (payload("operator", tier="operator", speaker=True), (), owed.BRANCH_OPERATOR),
-    (payload(P, posture="once", speaker=True), (P,), owed.BRANCH_DIRECTOR),  # 2 is gone
+    (payload(P, posture="once", speaker=True), (P,), owed.BRANCH_DIRECTOR),
     (payload(R, posture="none"), (), None),
-    (payload("thinker", operator_words=True, posture="none"), (), None),
+    (payload("archivist", operator_words=True, posture="none"), (), None),
 ])
 def test_each_branch_of_owing_branch(p, directors, branch):
     assert owed.owing_branch(p, directors) == branch
@@ -1181,7 +1180,8 @@ def test_the_readable_query_answers_handed_and_waiting(rig, pair):
 
 
 def test_the_resolve_answer_carries_no_per_feature_mark(rig):
-    """comms/refine §3.10: one version check on `ping` replaces `posture_marks`."""
+    """No per-feature mark such as `posture_marks`: the one version check on `ping`
+    covers them."""
     assert "posture_marks" not in rig.daemon._resolve_query({"name": "planner",
                                                               "scope": "global"})
 
@@ -1293,9 +1293,6 @@ def test_opencodes_file_carries_the_director_sentence(tmp_path):
 # ----------------------------------------------------------------- the glossary, help
 
 def test_the_glossary_entries_are_exact():
-    assert glossary.lookup("speaker") is None
-    assert glossary.lookup("operator-words") is None
-    assert glossary.lookup("via-phone") is None
     owed_text = glossary.lookup("owed").text
     assert owed_text.startswith("a reply you owe. A `[reply-once]` message owes one reply, "
                                 "whoever sent it, unless it is marked `(unverified)`.")
@@ -1383,108 +1380,111 @@ def test_a_held_once_send_to_a_cold_shim_posts_and_is_indexed_as_an_ask(rig):
 
 # ------------------------------------------------- (m) the callers' argv, as they pass it
 
-def voice_operator_argv(names, body, *, posture="once", reply_to=None):
-    """`OperatorSend`'s argv: the names, the body, then `--posture`, then `--reply-to`."""
+def operator_session_argv(names, body, *, posture="once", reply_to=None):
+    """An operator session's argv: the names, the body, then `--posture`, then
+    `--reply-to`."""
     argv = ["send", names, body, "--posture", posture]
     return argv + (["--reply-to", str(reply_to)] if reply_to else [])
 
 
-@pytest.mark.parametrize("site", ["pinned send", "direct line", "sitting post"])
-def test_voices_operator_sites_post_reply_once(rig, op, site):
-    msg, _ = posts(rig, OPERATOR, voice_operator_argv(R, f"[{site}] his words"))
+@pytest.mark.parametrize("site", ["pinned send", "direct line", "posted note"])
+def test_operator_sites_post_reply_once(rig, op, site):
+    msg, _ = posts(rig, OPERATOR, operator_session_argv(R, f"[{site}] a question"))
     assert line_of(msg) == f"::to {R} [reply-once]"
 
 
 @pytest.mark.parametrize("kind", ["no-reply", "once"])
-def test_voices_answer_that_posts_reply_once_to_an_agents_none_and_once(rig, op, kind):
+def test_an_operator_answer_that_posts_reply_once_to_an_agents_none_and_once(rig, op,
+                                                                               kind):
     ref = make_ref(rig, kind, to="operator", replier=OPERATOR)
-    msg, _ = posts(rig, OPERATOR, voice_operator_argv(P, "answer that", reply_to=ref.id))
+    msg, _ = posts(rig, OPERATOR, operator_session_argv(P, "answer that", reply_to=ref.id))
     assert (zero(msg).posture, zero(msg).reply_to) == ("once", ref.id)
 
 
 @pytest.mark.parametrize("posture", ["none", "once", "open"])
-def test_voices_thinker_tool_send_with_each_posture(rig, posture):
+def test_archivists_send_with_each_posture(rig, posture):
     rig.shim(**REVIEWER)
-    rig.shim(slot=5, name="thinker", global_=True)
-    msg, _ = posts(rig, THINKER, ["send", R, "from thinker", "--posture", posture])
+    rig.shim(slot=5, name="archivist", global_=True)
+    msg, _ = posts(rig, ARCHIVIST, ["send", R, "from archivist", "--posture", posture])
     assert zero(msg).posture == posture
 
 
-def test_voices_thinker_reply_and_draft_with_no_posture_take_the_derived_one(rig, pair):
-    rig.shim(slot=5, name="thinker", global_=True)
-    ask, _ = posts(rig, PLANNER, ["send", "thinker", "which?", "--posture", "once"])
-    msg, _ = posts(rig, THINKER, ["send", P, "this one", "--reply-to", ask.id])
+def test_archivists_reply_and_draft_with_no_posture_take_the_derived_one(rig, pair):
+    rig.shim(slot=5, name="archivist", global_=True)
+    ask, _ = posts(rig, PLANNER, ["send", "archivist", "which?", "--posture", "once"])
+    msg, _ = posts(rig, ARCHIVIST, ["send", P, "this one", "--reply-to", ask.id])
     assert zero(msg).posture == "none"
-    code, out = send(rig, THINKER, P, "a draft with no posture")
+    code, out = send(rig, ARCHIVIST, P, "a draft with no posture")
     assert (code, out.strip()) == (2, cli.POSTURE_REQUIRED)
 
 
-def test_voices_c17_ask_goes_once(rig):
+def test_archivists_ask_goes_once(rig):
     rig.shim(**REVIEWER)
-    rig.shim(slot=5, name="thinker", global_=True)
-    msg, _ = posts(rig, THINKER, ["send", R, "what are you working on?", "--posture",
+    rig.shim(slot=5, name="archivist", global_=True)
+    msg, _ = posts(rig, ARCHIVIST, ["send", R, "what are you working on?", "--posture",
                                   "once"])
     assert zero(msg).posture == "once"
 
 
 @pytest.mark.parametrize("posture, token", [("once", "[reply-once]"), ("none", "[no reply]")])
-def test_notifys_notice_argv(rig, op, posture, token):
+def test_a_notices_argv_to_the_operator(rig, op, posture, token):
     msg, _ = posts(rig, PLANNER, ["send", "operator", "--posture", posture, "--new",
-                                  "[notify · info] done"])
+                                  "[notice · info] done"])
     assert line_of(msg) == f"::to operator {token}"
 
 
-def test_notifys_outcome_argv(rig, pair):
-    msg, _ = posts(rig, REVIEWER, ["send", P, "--posture", "none", "[notify] answered: A"])
+def test_an_outcome_notices_argv(rig, pair):
+    msg, _ = posts(rig, REVIEWER, ["send", P, "--posture", "none", "[notice] answered: A"])
     assert line_of(msg) == f"::to {P} [no reply]"
 
 
-def test_launch_consoles_brief_argv(rig, pair):
+def test_a_launchers_brief_argv(rig, pair):
     msg, _ = posts(rig, PLANNER, ["send", R, "your brief", "--posture", "none"])
     assert line_of(msg) == f"::to {R} [no reply]"
 
 
-def phone_argv(reply_to, name, text):
-    """A phone lane's argv: `--posture once`, and no `--via` any more."""
+def gateway_argv(reply_to, name, text):
+    """The argv of a gateway outside every session: `--reply-to`, `--posture once`, then
+    the name and the text."""
     return ["send", "--reply-to", str(reply_to), "--posture", "once", "--", name, text]
 
 
 @pytest.mark.parametrize("kind", ["no-reply", "once"])
-def test_phone_gateways_argv_posts_reply_once(rig, op, kind):
+def test_a_gateways_argv_posts_reply_once(rig, op, kind):
     if rig.backend != "local":
         pytest.skip("the credentialled operator lane exists on the local backend alone")
     ref = make_ref(rig, kind, to="operator", replier=OPERATOR)
-    code, out = rig.cli(phone_argv(ref.id, P, "[phone · answer button] A"),
+    code, out = rig.cli(gateway_argv(ref.id, P, "[gateway · answer button] A"),
                         env=operator_env(rig))
     assert code == 0, out
     msg = rig.gateway.get_message(sent_id(out))
     assert line_of(msg) == f"::to {P} re:{ref.id} [reply-once]"
 
 
-# ------------------------------------------------------------ (n) the phone gateway's argv
+# --------------------------------------------------- (n) a gateway outside every session
 
-def phone_only(rig):
+def gateway_only(rig):
     if rig.backend != "local":
         pytest.skip("the credentialled operator lane exists on the local backend alone")
 
 
-def test_the_phone_lane_in_an_open_thread_counts_and_takes_its_mark(rig, op):
-    phone_only(rig)
+def test_the_gateway_lane_in_an_open_thread_counts_and_takes_its_mark(rig, op):
+    gateway_only(rig)
     root = open_root(rig, "--cap", "2", to="operator")
-    code, out = rig.cli(phone_argv(root.id, P, "[phone] yes"), env=operator_env(rig))
+    code, out = rig.cli(gateway_argv(root.id, P, "[gateway] yes"), env=operator_env(rig))
     assert code == 0, out
     his = rig.gateway.get_message(sent_id(out))
     assert (zero(his).posture, zero(his).thread_mark) == ("once", "one-left")
     assert "Sent. One reply left in this thread." in out.splitlines()
     closing, _ = posts(rig, PLANNER, ["reply", his.id, "noted"])
     assert zero(closing).thread_mark == "last"
-    code, out = rig.cli(phone_argv(closing.id, P, "[phone] one more"), env=operator_env(rig))
+    code, out = rig.cli(gateway_argv(closing.id, P, "[gateway] one more"), env=operator_env(rig))
     assert code == 0, out
     assert zero(rig.gateway.get_message(sent_id(out))).posture == "once"
 
 
 def test_the_terminal_lane_writes_the_same_flags_as_passed(rig, op):
-    phone_only(rig)
+    gateway_only(rig)
     for flags, line in ((["--posture", "none"], f"::to {P} [no reply]"),
                         (["--posture", "open", "--cap", "3"], f"::to {P} [cap:3] [open]")):
         code, out = rig.cli(["send", P, "typed", *flags], env=operator_env(rig))
@@ -1492,10 +1492,10 @@ def test_the_terminal_lane_writes_the_same_flags_as_passed(rig, op):
         assert line_of(rig.gateway.get_message(sent_id(out))) == line
 
 
-def test_the_phone_lanes_once_opens_an_ask_the_recipient_answers(rig, op):
-    phone_only(rig)
+def test_the_gateway_lanes_once_opens_an_ask_the_recipient_answers(rig, op):
+    gateway_only(rig)
     notice = make_ref(rig, "other", to="operator", replier=OPERATOR)
-    code, out = rig.cli(phone_argv(notice.id, P, "[phone · answer button] A"),
+    code, out = rig.cli(gateway_argv(notice.id, P, "[gateway · answer button] A"),
                         env=operator_env(rig))
     assert code == 0, out
     his = rig.gateway.get_message(sent_id(out))
@@ -1509,12 +1509,12 @@ def test_the_phone_lanes_once_opens_an_ask_the_recipient_answers(rig, op):
     assert code == 0, out
 
 
-def test_the_phone_lanes_answer_to_an_ask_ends_the_wait_and_asks_back(rig, op):
-    phone_only(rig)
+def test_the_gateway_lanes_answer_to_an_ask_ends_the_wait_and_asks_back(rig, op):
+    gateway_only(rig)
     ask = make_ref(rig, "once", to="operator", replier=OPERATOR)
     wait_until(lambda: ask.id in rig.daemon.sent_by_id)
     assert "operator" in awaiting(rig, P)
-    code, out = rig.cli(phone_argv(ask.id, P, "[phone · answer button] B"),
+    code, out = rig.cli(gateway_argv(ask.id, P, "[gateway · answer button] B"),
                         env=operator_env(rig))
     assert code == 0, out
     his = rig.gateway.get_message(sent_id(out))

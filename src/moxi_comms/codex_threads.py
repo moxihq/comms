@@ -3,8 +3,8 @@
 The file holds the thread of the identity's CURRENT launch. A launch is one
 `moxi-comms-codex` process: its first start always starts a new thread with `thread/start`
 and records the id here, and the adapter never resumes a thread an earlier launch
-recorded (operator ruling, 2026-10-08: a Codex relaunch starts a fresh conversation, as
-a Claude relaunch does). Inside one launch the adapter resumes
+recorded: a Codex relaunch starts a fresh conversation, as a Claude relaunch does.
+Inside one launch the adapter resumes
 only the thread that launch started, which it holds in memory, and never replaces it:
 a resume that fails is loud and retried. No launch reads a thread id from this file;
 it is read only for the keys kept beside the launch's own id (`rollout`, `layer_one`),

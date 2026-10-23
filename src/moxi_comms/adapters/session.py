@@ -133,9 +133,9 @@ def stamped_env(base=None, **claim) -> dict:
     a scoped one stamps no `MOXI_COMMS_GLOBAL`. Overlay those gaps onto an inherited
     environment and they fill with whoever launched the process.
 
-    Found by a live spawn while building the `driver` adapter (since removed): a driven
-    child came out holding the PARENT session's `MOXI_COMMS_SHIM_SOCKET`, pointed at the
-    control socket of the session that started the driver. The socket is the visible symptom; the one that
+    Without the scrub, a child launched from inside a session comes out holding the
+    PARENT session's `MOXI_COMMS_SHIM_SOCKET`, pointed at the control socket of the
+    session that launched it. The socket is the visible symptom; the one that
     matters is `MOXI_COMMS_DIRECTORS`, because authority is the recipient's own grant and
     nobody may be handed one by proximity. An agent that declared no directors would
     have inherited its launcher's and rendered another agent's mail as `directive from`.
@@ -247,8 +247,8 @@ class Session:
         Position is deliberate: the render goes AFTER `*extra`, the launcher
         passthrough, so a stale launcher that still passes `-n` is overridden by
         position. A repeated `-n` is LAST-WINS -- measured, not assumed
-        (`claude --bg -n bl1probeA -n bl1probeB` -> session store `name`
-        `bl1probeB`, banner and `claude agents --json` agreeing; Claude Code
+        (`claude --bg -n first -n second` -> session store `name`
+        `second`, banner and `claude agents --json` agreeing; Claude Code
         2.1.235). This is override, not belt-and-braces: on a comms-holding session
         the label is not the passthrough's to choose, because the claim is the
         identity and the label mirrors it one way. `extra` is still never inspected

@@ -18,7 +18,7 @@ REPO = Path(__file__).resolve().parent.parent
 PYPROJECT = tomllib.loads((REPO / "pyproject.toml").read_text())
 SOURCE = REPO / "src" / "moxi_comms"
 
-#: The internal entry points (design §4.5): one name per entry point, moxi-comms-<part>.
+#: The internal entry points: one name per entry point, moxi-comms-<part>.
 SCRIPTS = {
     "moxi": "moxi.cli:main",
     "moxi-comms-daemon": "moxi_comms.daemon:main",
@@ -97,7 +97,7 @@ def test_the_package_requires_the_core_and_turns_and_codex_is_an_extra():
 
 
 def test_the_scripts_are_the_umbrella_and_the_internal_entry_points():
-    """There is no bare `comms` script ([C3]): the module runs as `moxi comms`."""
+    """There is no bare `comms` script: the module runs as `moxi comms`."""
     scripts = PYPROJECT["project"]["scripts"]
     assert scripts == SCRIPTS
     assert "comms" not in scripts
@@ -125,8 +125,7 @@ def test_the_announcement_offers_codex_and_gates_its_script():
 
 
 def test_internal_env_is_the_launcher_wiring_the_secrets_step_and_the_test_seam():
-    """Every other variable comms reads is a config key's `env` or a root locator
-    (design §4.7, §7.4)."""
+    """Every other variable comms reads is a config key's `env` or a root locator."""
     assert set(module.INTERNAL_ENV) == {
         "MOXI_COMMS_NAME", "MOXI_COMMS_SLOT", "MOXI_COMMS_SCOPE", "MOXI_COMMS_GLOBAL",
         "MOXI_COMMS_DIRECTORS", "MOXI_COMMS_SOCKET", "MOXI_COMMS_CLAIM_SOCKET",

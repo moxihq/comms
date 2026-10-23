@@ -1,4 +1,4 @@
-"""RULE H1 (moxi-hands-on-fixes design §2): a turn end is a release point that stays open
+"""A turn end is a release point that stays open
 for a bounded settle window after its frame, not an instant.
 
 A `turn` frame's first read can come before the harness has written the turn (Claude Code
@@ -91,7 +91,7 @@ def still_lines(caplog, q=REVIEWER_Q) -> list:
 
 def test_a_cold_turn_end_releases_at_the_windows_first_passing_read(
         rig, seam, peers, caplog):
-    """Fails today. A held row; the seam reads cold at the frame and warm from 300 ms
+    """A held row; the seam reads cold at the frame and warm from 300 ms
     later. Within 2 s the row is handed `held: true` and the release is logged."""
     seam.table[REVIEWER_Q] = cache.COLD
     peer = peers()
@@ -126,7 +126,7 @@ def test_the_real_claude_reader_releases_once_the_turn_reaches_the_transcript(
 
 def test_a_send_queued_cold_inside_a_window_on_an_empty_queue_goes_at_its_pass(
         rig, seam, peers):
-    """Fails under design v0.1 and today. The frame finds the queue empty; 50 ms later a
+    """The frame finds the queue empty; 50 ms later a
     send's gate read is cold, so its row is queued; the seam reads warm from 300 ms. The
     row is handed `held: true` within 2 s."""
     seam.table[REVIEWER_Q] = cache.COLD
@@ -197,7 +197,7 @@ def test_a_read_that_stays_cold_releases_nothing_and_says_so_once(
 # ------------------------------------------------------------------ what closes a window
 
 def test_the_window_never_hands_an_id_its_frame_reported_unhandled(rig, seam, peers):
-    """Fails today. A is handed live; B waits as a held row. The cold frame reports A
+    """A is handed live; B waits as a held row. The cold frame reports A
     `unhandled`; the window's release hands B and not A, which waits for the next release
     point as `_settle` says."""
     seam.table[REVIEWER_Q] = cache.WARM
@@ -217,7 +217,7 @@ def test_the_window_never_hands_an_id_its_frame_reported_unhandled(rig, seam, pe
 
 
 def test_a_newer_turn_closes_the_window_and_the_row_goes_once(rig, seam, peers):
-    """Fails today. A second cold `turn` 100 ms into the window closes it and opens its
+    """A second cold `turn` 100 ms into the window closes it and opens its
     own; the row is handed once, and the closed window reads no more."""
     seam.table[REVIEWER_Q] = cache.COLD
     peer = peers()
@@ -254,7 +254,7 @@ def test_a_newer_turn_whose_read_passes_closes_the_old_window(rig, seam, peers):
 
 
 def test_a_cold_look_inside_the_window_does_not_close_it(rig, seam, peers):
-    """Fails today. A `look` 100 ms into the window reads cold and releases nothing; the
+    """A `look` 100 ms into the window reads cold and releases nothing; the
     window's later pass hands the row."""
     seam.table[REVIEWER_Q] = cache.COLD
     peer = peers()
@@ -323,7 +323,7 @@ def test_a_reads_notes_are_logged_for_the_frame_and_not_per_window_read(
 
 def test_a_send_read_cold_before_the_pass_and_queued_after_it_is_not_left_behind(
         rig, seam, peers):
-    """Fails today (verification-2-recheck minor 2). The send's gate read begins while
+    """The send's gate read begins while
     the record still lags and reads cold, but its row would be queued only after the
     window's passing read has released. The send reads once more and goes live; nothing
     waits."""

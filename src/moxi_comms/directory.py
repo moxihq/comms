@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS webhooks ( -- posting credentials; THE provenance anc
     agent_name    TEXT,
     agent_scope   TEXT,
     channel_id    TEXT NOT NULL REFERENCES rooms(channel_id),
-    bws_secret_id TEXT NOT NULL,      -- pointer only; URLs never touch disk
+    secret_id     TEXT NOT NULL,      -- pointer only; URLs never touch disk
     created_at    TEXT NOT NULL,
     FOREIGN KEY (agent_name, agent_scope) REFERENCES agents(name, scope),
     CHECK ((slot_id IS NULL) <> (agent_name IS NULL)),
@@ -73,6 +73,14 @@ ROW_KINDS = (KIND_AGENT, KIND_SEND_ONLY)
 
 _ADD_KIND = ("ALTER TABLE agents ADD COLUMN kind TEXT NOT NULL DEFAULT 'agent' "
              "CHECK (kind IN ('agent','send-only'))")
+
+#: The `webhooks` column that holds a credential's store pointer. A directory keeps the
+#: column name it was created with: nothing renames it, so a running process of any
+#: release reads every directory. Statements and row reads take the name from the table
+#: (`secret_column`, `secret_of`), and it is always one of these two constants.
+SECRET_COLUMN = "secret_id"
+#: the column's name in directories created before 0.1.1
+OLD_SECRET_COLUMN = "bws_secret_id"
 
 
 def now() -> str:
@@ -138,6 +146,22 @@ def kind_of(row) -> str:
     if row is None:
         return KIND_AGENT
     return row["kind"] if "kind" in row.keys() else KIND_AGENT
+
+
+def secret_column(conn) -> str:
+    """The name of the `webhooks` table's pointer column in this directory: `secret_id`,
+    or the older name in a directory created with it. Read from the table, never from
+    input, so a statement built with it names one of two fixed constants."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(webhooks)")}
+    if SECRET_COLUMN not in columns and OLD_SECRET_COLUMN in columns:
+        return OLD_SECRET_COLUMN
+    return SECRET_COLUMN
+
+
+def secret_of(row) -> str:
+    """A fetched `webhooks` row's store pointer, whichever name its directory gives the
+    column."""
+    return row[SECRET_COLUMN] if SECRET_COLUMN in row.keys() else row[OLD_SECRET_COLUMN]
 
 
 def is_send_only(conn, name: str, scope: str) -> bool:

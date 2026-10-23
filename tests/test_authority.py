@@ -44,9 +44,9 @@ def test_an_explicit_scope_is_honoured_and_crosses_scopes():
 
 
 def test_a_global_director_renders_bare_one_spelling_per_identity():
-    """The global-renders-bare rule, applied here: `steward@global` and `steward` are one name."""
-    assert directors.declare(["steward@global"]) == ["steward"]
-    assert directors.declare(["steward"]) == ["steward"]
+    """The global-renders-bare rule, applied here: `herald@global` and `herald` are one name."""
+    assert directors.declare(["herald@global"]) == ["herald"]
+    assert directors.declare(["herald"]) == ["herald"]
 
 
 def test_an_auto_name_director_is_global_wherever_it_is_written():
@@ -72,10 +72,10 @@ def test_a_malformed_director_is_refused_where_it_was_typed(bad):
 
 def test_the_stamp_round_trips_beside_the_identity_stamp():
     env = session.identity_env(name="reviewer", slot=2, scope="proj-a", project="proj-a",
-                               directors=["planner@proj-a", "steward"])
-    assert env[directors.ENV_VAR] == "planner@proj-a,steward"
+                               directors=["planner@proj-a", "herald"])
+    assert env[directors.ENV_VAR] == "planner@proj-a,herald"
     assert env["MOXI_COMMS_NAME"] == "reviewer" and env["MOXI_COMMS_SCOPE"] == "proj-a"
-    assert directors.from_env(env) == ("planner@proj-a", "steward")
+    assert directors.from_env(env) == ("planner@proj-a", "herald")
 
 
 def test_no_declaration_stamps_nothing_at_all():
@@ -87,20 +87,20 @@ def test_no_declaration_stamps_nothing_at_all():
 def test_the_launcher_qualifies_once_and_hands_the_adapter_the_qualified_names():
     import os
     s = session.Session("dir1", name="reviewer", scope="proj-a", project="proj-a",
-                        directors=["planner", "steward@global"])
-    assert s.directors == ["planner", "steward"], "a bare director is the global identity"
+                        directors=["planner", "herald@global"])
+    assert s.directors == ["planner", "herald"], "a bare director is the global identity"
     shim = session.adapter_shim(s, os.getpid())
     try:
-        assert shim.directors == ("planner", "steward")
-        assert shim.claims.claim["directors"] == ["planner", "steward"]
+        assert shim.directors == ("planner", "herald")
+        assert shim.claims.claim["directors"] == ["planner", "herald"]
     finally:
         shim.stop(remove_claim_file=True)
-    assert s.env(base={})[directors.ENV_VAR] == "planner,steward"
+    assert s.env(base={})[directors.ENV_VAR] == "planner,herald"
 
 
 def test_the_shim_never_re_qualifies_what_the_launcher_qualified():
-    """A global director renders bare, so a second pass would make it `steward@proj-a`."""
-    assert directors.validated(["steward", "planner@proj-a"]) == ("steward",
+    """A global director renders bare, so a second pass would make it `herald@proj-a`."""
+    assert directors.validated(["herald", "planner@proj-a"]) == ("herald",
                                                                   "planner@proj-a")
     with pytest.raises(directors.BadDirector):
         directors.validated(["not a name"])
@@ -108,10 +108,10 @@ def test_the_shim_never_re_qualifies_what_the_launcher_qualified():
 
 def test_a_dry_run_launch_prints_the_declaration(capsys):
     assert session.main(["--name", "reviewer", "--scope", "proj-a", "--director",
-                         "planner", "--director", "steward@global", "--session-id",
+                         "planner", "--director", "herald@global", "--session-id",
                          "5e55a1d0-0000-4000-8000-0000000000d2", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "directors  planner, steward" in out
+    assert "directors  planner, herald" in out
 
 
 def test_a_malformed_director_refuses_the_launch(capsys):
@@ -146,8 +146,8 @@ def test_an_unverified_director_degrades_to_information_and_says_why():
 
 
 def test_the_operator_renders_no_tier_parenthetical_because_the_lead_carries_it():
-    """`directive from operator` already says operator, and that his word is a
-    directive; an `(operator)` after it, or a note, is width spent on nothing."""
+    """`directive from operator` already says operator, and that what the operator
+    says is a directive; an `(operator)` after it, or a note, is width spent on nothing."""
     line = frame_line(payload("operator", "operator"), [])
     assert line == "[comms] directive from operator · msg 101"
 
@@ -222,7 +222,7 @@ def test_the_operator_needs_no_declaration_at_delivery(rig):
 ROSTER = """
     [codex.agents."planner@proj-a"]
     slot = 3
-    cwd = "/home/me/core/proj-a"
+    cwd = "/home/me/work/proj-a"
     directors = {directors}
 """
 
@@ -234,9 +234,9 @@ def roster_agent(tmp_path, directors_toml, *, key="planner@proj-a"):
 
 
 def test_the_roster_carries_a_directors_list_qualified_like_the_launcher(tmp_path):
-    agent = roster_agent(tmp_path, '["main", "steward@global", "other@proj-b"]')
-    assert agent.directors == ["main", "steward", "other@proj-b"]
-    assert agent.env(base={})[directors.ENV_VAR] == "main,steward,other@proj-b"
+    agent = roster_agent(tmp_path, '["main", "herald@global", "other@proj-b"]')
+    assert agent.directors == ["main", "herald", "other@proj-b"]
+    assert agent.env(base={})[directors.ENV_VAR] == "main,herald,other@proj-b"
 
 
 def test_a_roster_without_directors_declares_none(tmp_path):
@@ -253,7 +253,7 @@ def test_a_malformed_directors_entry_is_refused(tmp_path, bad):
 
 
 def test_a_global_roster_identity_qualifies_its_bare_directors_globally(tmp_path):
-    agent = roster_agent(tmp_path, '["main"]', key="steward")
+    agent = roster_agent(tmp_path, '["main"]', key="herald")
     assert (agent.scope, agent.directors) == ("global", ["main"])
 
 

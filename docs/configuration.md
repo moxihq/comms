@@ -106,7 +106,7 @@ hours    = 24
 | `[opencode] defaults`, `[opencode] agents` | `{}` | | the OpenCode roster (experimental, below) |
 
 Retired keys, still declared so a file that sets one is told what to do: `[claude]
-channel` (comms passes Claude Code no channel), `[policy] voice_companion`,
+channel` (comms passes Claude Code no channel),
 `[policy] never_held` (no sender is exempt from the cold-cache hold) and
 `[policy] next_turn_refused` (`--held` is accepted for every recipient). Remove them.
 

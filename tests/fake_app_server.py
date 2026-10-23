@@ -30,7 +30,7 @@ Every behaviour below was measured on codex-cli 0.160.0, except the phantom turn
     thread id <id>`): a thread that is not loaded and never ran a turn has nothing on
     disk to load.
 
-Codex's own hooks (design §4.2a), as checked live on codex-cli 0.153.0, run through
+Codex's own hooks, as checked live on codex-cli 0.153.0, run through
 `hook_runner(event, input)` when a test sets one:
 
   * **SessionStart** is not run at `thread/start`: the source is queued and the hook runs

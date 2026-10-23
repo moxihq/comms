@@ -56,15 +56,15 @@ def test_the_built_ins_are_known_with_no_metadata():
 
 def test_a_person_kind_and_a_harness_kind_are_accepted():
     got = kinds.load([
-        Entry("speech", {"cache": "person"}),
-        Entry("driver", {"cache": "harness", "harness": "claude",
-                         "evidence": "some_addon.kinds:driver_evidence"}),
+        Entry("person-kind", {"cache": "person"}),
+        Entry("harness-kind", {"cache": "harness", "harness": "claude",
+                               "evidence": "some_addon.kinds:harness_evidence"}),
     ])
     assert got.broken == ()
-    assert got.get("speech") == kinds.Kind("speech", "person")
-    assert got.get("driver") == kinds.Kind("driver", "harness", "claude",
-                                           "some_addon.kinds:driver_evidence")
-    assert "driver" in got and "nothing" not in got
+    assert got.get("person-kind") == kinds.Kind("person-kind", "person")
+    assert got.get("harness-kind") == kinds.Kind("harness-kind", "harness", "claude",
+                                                 "some_addon.kinds:harness_evidence")
+    assert "harness-kind" in got and "nothing" not in got
 
 
 @pytest.mark.parametrize("entry, reason", [
@@ -88,9 +88,9 @@ def test_a_declaration_that_does_not_hold_is_left_out_with_its_reason(entry, rea
 
 
 def test_two_declarations_of_one_kind_are_both_left_out():
-    got = kinds.load([Entry("speech", {"cache": "person"}),
-                      Entry("speech", {"cache": "person"})])
-    assert "speech" not in got and got.broken[0].name == "speech"
+    got = kinds.load([Entry("person-kind", {"cache": "person"}),
+                      Entry("person-kind", {"cache": "person"})])
+    assert "person-kind" not in got and got.broken[0].name == "person-kind"
 
 
 def test_comms_own_entry_for_a_built_in_is_its_declaration():
@@ -99,20 +99,20 @@ def test_comms_own_entry_for_a_built_in_is_its_declaration():
 
 
 def test_the_daemon_accepts_a_declared_kind_and_refuses_an_unknown_one(rig):
-    rig.daemon.kinds = kinds.load([Entry("speech", {"cache": "person"})])
+    rig.daemon.kinds = kinds.load([Entry("person-kind", {"cache": "person"})])
     client = DaemonClient(rig.daemon.socket_path).connect()
     try:
         with pytest.raises(DaemonError) as e:
             client.register(slot="next-free", name="talker", scope="proj-a",
                             adapter="no-such-kind")
         assert "unknown adapter kind 'no-such-kind'" in str(e.value)
-        assert "claude-shim, codex, opencode, send-only, speech" in str(e.value)
+        assert "claude-shim, codex, opencode, send-only, person-kind" in str(e.value)
         answer = client.register(slot="next-free", name="talker", scope="proj-a",
-                                 adapter="speech")
+                                 adapter="person-kind")
         assert answer["ok"]
     finally:
         client.close()
-    assert rig.daemon.bindings["talker@proj-a"].adapter == "speech"
+    assert rig.daemon.bindings["talker@proj-a"].adapter == "person-kind"
 
 
 def test_a_default_daemon_reads_the_group(rig):

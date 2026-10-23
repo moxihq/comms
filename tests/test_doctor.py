@@ -57,8 +57,9 @@ def test_a_box_with_its_daemon_up(rig):
     assert r["backend"] == "local (the default)"
     assert r["secrets"] == "env, store (the default)"
     assert r["daemon"].startswith("answers at ")
-    for gone in ("profile", "files", "overseer", "provider", "channel"):
-        assert gone not in r, (gone, out)
+    assert set(r) == {"device", "DATA", "STATE", "CACHE", "CONFIG", "RUNTIME", "config",
+                      "backend", "slots", "secrets", "cache", "claude", "codex", "opencode",
+                      "daemon", "waiting", "turns"}, out
 
 
 def test_the_slots_row_on_an_empty_local_box_names_the_first_start():

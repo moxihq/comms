@@ -1,7 +1,6 @@
 """The adapters as their sessions' claim holders: a shim respawned inside its live
 session comes back holding its recorded claim, a session never inherits its launcher's claim socket, and the codex app-server is
-stamped with its adapter's own. What test_baton_shim and test_baton_harness covered of
-the claim system, without the pass (design §6.7.3)."""
+stamped with its adapter's own."""
 
 from __future__ import annotations
 

@@ -2,13 +2,13 @@
 
 The readers themselves (a Codex thread's rollout, an OpenCode session's rows, the lifetime
 table, the drift record) are the cache module's, and their pure reads are tested in its
-suite (design §6.9). What stays here is what drives comms: the daemon's gate and its
+suite. What stays here is what drives comms: the daemon's gate and its
 `session` answer over each verdict, the hold and `moxi comms cache` lines, a lowering the
 daemon's learning store writes and the words comms logs about it, and the launchers'
 reports (the evidence cache's read takes). comms reaches cache only through its seam; a
 test reaches it only through `conftest.cache_api()`.
 
-Test ids follow the cache-clock design's list (T22 to T37). The daemon and verb cases run
+The daemon and verb cases run
 on both backends (BOTH_BACKENDS). Fixture rollouts are cut from the shapes of the probe
 rollouts of 2026-10-05; the fixture db is built from OpenCode 1.18.34's schema, not copied
 from a live db. Every read here is against tmp paths. The lifetime table is cache's
@@ -315,7 +315,7 @@ from test_cold_sends import reboot  # noqa: E402,F401  (a fixture)
 
 
 def logged_about(caplog, text):
-    """The daemon log's warnings that carry `text`: where cache-clock lines go ([F22])."""
+    """The daemon log's warnings that carry `text`: where cache-clock lines go."""
     return [r.getMessage() for r in caplog.records
             if r.name == "comms.daemon" and r.levelno >= logging.WARNING
             and text in r.getMessage()]
@@ -360,11 +360,11 @@ def delivered(pushes, msg):
 
 def queued(rig, msg):
     """The daemon could not hand `msg` to coder live: it waits in coder's queue (the
-    daemon never refuses a posted message; design §3.6, [R8])."""
+    daemon never refuses a posted message)."""
     return wait_until(lambda: msg.id in held_of(rig, CODER_Q))
 
 
-def test_t22_warm_codex_and_opencode_get_live_mail(rig, adapters, tmp_path):
+def test_warm_codex_and_opencode_get_live_mail(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     real_rollout(root, 60)
     coder = codex_bind(adapters, root)
@@ -379,7 +379,7 @@ def test_t22_warm_codex_and_opencode_get_live_mail(rig, adapters, tmp_path):
 
 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
-def test_t22_cold_ones_are_queued_with_a_record_row(rig, adapters, tmp_path, kind):
+def test_cold_ones_are_queued_with_a_record_row(rig, adapters, tmp_path, kind):
     if kind == "codex":
         root = sessions_root(tmp_path)
         real_rollout(root, 4000)
@@ -393,7 +393,7 @@ def test_t22_cold_ones_are_queued_with_a_record_row(rig, adapters, tmp_path, kin
     assert wait_until(lambda: msg.id in record_rows(rig.gateway, CODER_Q))
 
 
-def test_t23_a_new_codex_identity_takes_its_deferred_mail(rig, adapters, tmp_path):
+def test_a_new_codex_identity_takes_its_deferred_mail(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     msg = post(rig, [CODER_Q], "while you were away")
     wait_until(lambda: msg.id in held_of(rig, CODER_Q))
@@ -403,7 +403,7 @@ def test_t23_a_new_codex_identity_takes_its_deferred_mail(rig, adapters, tmp_pat
 
 @pytest.mark.parametrize("case", ["cold", "not-under-root", "unreadable-record"])
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
-def test_t23_a_resumed_identity_on_a_cold_or_unread_session_queues_its_backlog(
+def test_a_resumed_identity_on_a_cold_or_unread_session_queues_its_backlog(
         rig, adapters, tmp_path, reboot, case, kind):
     msg = post(rig, [CODER_Q], "while you were away")
     wait_until(lambda: msg.id in held_of(rig, CODER_Q))
@@ -430,7 +430,7 @@ def test_t23_a_resumed_identity_on_a_cold_or_unread_session_queues_its_backlog(
 
 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
-def test_t24_a_launcher_that_reports_none_of_the_new_fields_is_queued(rig, adapters,
+def test_a_launcher_that_reports_none_of_the_new_fields_is_queued(rig, adapters,
                                                                       kind):
     coder = adapters(slot=5, name="coder", scope="proj-a", adapter=kind)
     msg = post(rig, [CODER_Q])
@@ -438,7 +438,7 @@ def test_t24_a_launcher_that_reports_none_of_the_new_fields_is_queued(rig, adapt
     assert coder.ids() == []
 
 
-def test_t25_the_fields_come_from_the_bindings_own_connection(rig, adapters, tmp_path):
+def test_the_fields_come_from_the_bindings_own_connection(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     real_rollout(root, 60)
     coder = codex_bind(adapters, None)               # no root: unknown
@@ -461,7 +461,7 @@ def test_t25_the_fields_come_from_the_bindings_own_connection(rig, adapters, tmp
     assert other is not None
 
 
-def test_t26_the_session_answer_carries_the_lifetime_and_the_key(rig, adapters, tmp_path):
+def test_the_session_answer_carries_the_lifetime_and_the_key(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     real_rollout(root, 60)
     codex_bind(adapters, root)
@@ -477,12 +477,12 @@ def test_t26_the_session_answer_carries_the_lifetime_and_the_key(rig, adapters, 
     assert {unbound[k] for k in ("cache_ttl", "cache_key", "cache_source")} == {None}
 
 
-def test_t26_the_hold_and_comms_cache_lines(rig, adapters, tmp_path):
+def test_the_hold_and_comms_cache_lines(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     real_rollout(root, 1800 + 12 * 60)
     codex_bind(adapters, root)
     code, out = send(rig, CODER_Q)
-    assert code == 0, out                  # a cold codex agent is held like any ([F5])
+    assert code == 0, out                  # a cold codex agent is held like any
     assert out.splitlines()[0].startswith("sent ")
     assert out.splitlines()[-1].startswith("Sent and held: coder@proj-a reads this after")
     first = out.splitlines()[1]
@@ -495,8 +495,8 @@ def test_t26_the_hold_and_comms_cache_lines(rig, adapters, tmp_path):
         "request). No agent can reach it now; only the operator, in its session.")
 
 
-def test_t26_an_opencode_model_with_no_row_is_sent_live(rig, adapters, tmp_path):
-    """A model with no lifetime row reads `no-cache` (design §3.6, [C4]): the send
+def test_an_opencode_model_with_no_row_is_sent_live(rig, adapters, tmp_path):
+    """A model with no lifetime row reads `no-cache`: the send
     delivers live and holds nothing."""
     db = oc_db(tmp_path, model=("openai", "gpt-5.5"))
     db.request(SID, time.time() - 180, "openai", "gpt-5.5")
@@ -514,7 +514,7 @@ def test_t26_an_opencode_model_with_no_row_is_sent_live(rig, adapters, tmp_path)
 
 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
-def test_t27_an_exception_inside_a_reader_queues(rig, adapters, tmp_path, monkeypatch,
+def test_an_exception_inside_a_reader_queues(rig, adapters, tmp_path, monkeypatch,
                                                   kind):
     # cache's read never raises (an exception inside it is `unknown`, `read-failed`);
     # one that escaped it anyway is caught by the seam, and the mail waits either way.
@@ -528,7 +528,7 @@ def test_t27_an_exception_inside_a_reader_queues(rig, adapters, tmp_path, monkey
     assert coder.ids() == []
 
 
-def test_t28_went_cold_is_the_age_less_the_lifetime_for_claude_too(rig):
+def test_went_cold_is_the_age_less_the_lifetime_for_claude_too(rig):
     write_transcript(CLAUDE_SID, 2 * 3600 + 600)
     rig.shim(slot=2, name="reviewer", scope="proj-a", session_id=CLAUDE_SID)
     code, out = send(rig, "reviewer@proj-a")
@@ -541,7 +541,7 @@ def test_t28_went_cold_is_the_age_less_the_lifetime_for_claude_too(rig):
 COMPRESSED = "its rollout has been idle at least 7 days"
 
 
-def test_t28_a_cold_read_with_no_lifetime_prints_no_duration_and_describe_agrees():
+def test_a_cold_read_with_no_lifetime_prints_no_duration_and_describe_agrees():
     from moxi_comms.daemon import Daemon
     changed = cache.Clock("cold", age_seconds=180, code="changed",
                           reason="the model changed since the last request")
@@ -562,7 +562,7 @@ def test_t28_a_cold_read_with_no_lifetime_prints_no_duration_and_describe_agrees
         assert "went cold" not in line and "counted as cold" in line
 
 
-def test_t33_a_retry_with_a_recorded_id_queues_the_mail_handed_at_the_first_replay(
+def test_a_retry_with_a_recorded_id_queues_the_mail_handed_at_the_first_replay(
         rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     msg = post(rig, [CODER_Q], "while you were away")
@@ -580,7 +580,7 @@ def test_t33_a_retry_with_a_recorded_id_queues_the_mail_handed_at_the_first_repl
 
 # ======================================================== free models at the daemon
 
-def test_t34_a_free_opencode_agent_is_delivered_sent_to_and_spoken_of(rig, adapters,
+def test_a_free_opencode_agent_is_delivered_sent_to_and_spoken_of(rig, adapters,
                                                                       tmp_path):
     db = free_db(tmp_path, age=40 * 86400)
     oc = oc_bind(adapters, db)
@@ -612,7 +612,7 @@ def lowering_rollout(root, *, gap=None, age=60):
     return prev, gap
 
 
-def test_t36_t37_a_lowering_is_written_logged_shown_and_survives_a_restart(
+def test_a_lowering_is_written_logged_shown_and_survives_a_restart(
         rig, adapters, tmp_path, reboot, caplog):
     caplog.set_level(logging.WARNING, logger="comms.daemon")
     root = sessions_root(tmp_path)
@@ -657,7 +657,7 @@ def test_t36_t37_a_lowering_is_written_logged_shown_and_survives_a_restart(
         c.close()
 
 
-def test_t37_the_hold_names_the_lowering(rig, adapters, tmp_path):
+def test_the_hold_names_the_lowering(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     seconds = measured_seconds()
     gap = seconds - 1200
@@ -673,7 +673,7 @@ def test_t37_the_hold_names_the_lowering(rig, adapters, tmp_path):
     assert "went cold 10m ago" in out
 
 
-def test_t36_a_write_that_fails_holds_the_model_until_one_succeeds(rig, adapters, tmp_path):
+def test_a_write_that_fails_holds_the_model_until_one_succeeds(rig, adapters, tmp_path):
     root = sessions_root(tmp_path)
     prev, _gap = lowering_rollout(root)
     # cache's state directory, where the learning store writes the record by atomic
@@ -694,7 +694,7 @@ def test_t36_a_write_that_fails_holds_the_model_until_one_succeeds(rig, adapters
 
 
 @pytest.mark.parametrize("bad", ["above", "unparseable"])
-def test_t36_a_rejected_or_unreadable_record_is_held_and_said_once(rig, adapters, tmp_path,
+def test_a_rejected_or_unreadable_record_is_held_and_said_once(rig, adapters, tmp_path,
                                                                   reboot, bad, caplog):
     caplog.set_level(logging.WARNING, logger="comms.daemon")
     path = drift_record_path(rig)
@@ -771,7 +771,7 @@ def binding(rig):
     return wait_until(lambda: rig.daemon.bindings.get(CODER_Q))
 
 
-def test_t29_cache_source_is_the_sessions_directory_under_codex_home(
+def test_cache_source_is_the_sessions_directory_under_codex_home(
         rig, codex_launcher, tmp_path, monkeypatch):
     home = tmp_path / "codex-home"
     monkeypatch.setenv("CODEX_HOME", str(home))
@@ -781,7 +781,7 @@ def test_t29_cache_source_is_the_sessions_directory_under_codex_home(
                for _register, report in adapter.reports)
 
 
-def test_t29_a_new_thread_after_no_record(rig, codex_launcher):
+def test_a_new_thread_after_no_record(rig, codex_launcher):
     adapter = codex_launcher()
     assert [report for register, report in adapter.reports if register][0] == {
         "new_session": True, "cache_source": adapter.cache_source()}
@@ -792,7 +792,7 @@ def test_t29_a_new_thread_after_no_record(rig, codex_launcher):
     assert binding(rig).turned is False
 
 
-def test_t29_every_launch_registers_a_new_session_and_starts_unturned(
+def test_every_launch_registers_a_new_session_and_starts_unturned(
         rig, codex_launcher):
     first = codex_launcher()
     first.fake.start_turn()
@@ -809,7 +809,7 @@ def test_t29_every_launch_registers_a_new_session_and_starts_unturned(
     assert binding(rig).turned is False
 
 
-def test_t29_an_unreadable_record_is_not_read(rig, codex_launcher):
+def test_an_unreadable_record_is_not_read(rig, codex_launcher):
     path = codex_threads.path(CODER_Q)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("{not json")
@@ -831,7 +831,7 @@ def never_read(monkeypatch, kind_cls, outcome_module, outcome_name):
     monkeypatch.setattr(outcome_module, outcome_name, never)
 
 
-def test_t29_a_codex_launch_never_reads_the_record_for_an_id(
+def test_a_codex_launch_never_reads_the_record_for_an_id(
         rig, codex_launcher, monkeypatch):
     never_read(monkeypatch, CodexAdapter, codex_threads, "read_outcome")
     monkeypatch.setattr(codex_threads, "read", lambda qualified: (_ for _ in ()).throw(
@@ -841,7 +841,7 @@ def test_t29_a_codex_launch_never_reads_the_record_for_an_id(
     assert adapter.thread_id != "old-launch"
 
 
-def test_t29_a_reregister_inside_a_launch_reports_the_held_thread(
+def test_a_reregister_inside_a_launch_reports_the_held_thread(
         rig, codex_launcher):
     adapter = codex_launcher()
     adapter.reregister()
@@ -873,7 +873,7 @@ def test_t29_a_reregister_inside_a_launch_reports_the_held_thread(
     ({"agent": {"build": {"model": 7}}}, None),
     ("not an object", None),
 ])
-def test_t30_the_default_agent_is_named_only_by_opencodes_rule(config, expected):
+def test_the_default_agent_is_named_only_by_opencodes_rule(config, expected):
     assert oc.default_agent_model(config) == expected
 
 
@@ -923,7 +923,7 @@ def oc_launcher(rig, tmp_path, monkeypatch):
     fake.stop()
 
 
-def test_t30_register_carries_the_db_and_the_agent_model_from_the_servers_env(
+def test_register_carries_the_db_and_the_agent_model_from_the_servers_env(
         rig, oc_launcher, monkeypatch, tmp_path):
     monkeypatch.setenv("FAKE_OPENCODE_DB", str(tmp_path / "data" / "opencode.db"))
     monkeypatch.setenv("FAKE_OPENCODE_CONFIG",
@@ -937,7 +937,7 @@ def test_t30_register_carries_the_db_and_the_agent_model_from_the_servers_env(
         "both ran under the server's environment, in the agent's working directory"
 
 
-def test_t30_commands_that_fail_report_nothing(rig, oc_launcher, monkeypatch):
+def test_commands_that_fail_report_nothing(rig, oc_launcher, monkeypatch):
     monkeypatch.delenv("FAKE_OPENCODE_DB", raising=False)
     monkeypatch.setenv("FAKE_OPENCODE_CONFIG", "fail")
     adapter = oc_launcher()
@@ -947,7 +947,7 @@ def test_t30_commands_that_fail_report_nothing(rig, oc_launcher, monkeypatch):
                                                             "new_session": True}
 
 
-def test_t30_a_new_session_then_its_first_turn(rig, oc_launcher):
+def test_a_new_session_then_its_first_turn(rig, oc_launcher):
     adapter = oc_launcher()
     sid = adapter.session_id
     ready = [r for reg, r in adapter.reports if not reg]
@@ -959,8 +959,8 @@ def test_t30_a_new_session_then_its_first_turn(rig, oc_launcher):
     assert [r for reg, r in adapter.reports if not reg][-1]["turned"] is True
 
 
-def test_t30_every_launch_registers_a_new_session(rig, oc_launcher):
-    """[C3]: a second launch, and one over an unreadable file, each register
+def test_every_launch_registers_a_new_session(rig, oc_launcher):
+    """A second launch, and one over an unreadable file, each register
     `new_session: true`, read no session file, and start their session unturned."""
     first = oc_launcher()
     sid = first.session_id
@@ -980,7 +980,7 @@ def test_t30_every_launch_registers_a_new_session(rig, oc_launcher):
     assert third.session_id not in (sid, second.session_id)
 
 
-def test_t30_a_re_register_inside_a_launch_reports_the_held_session(rig, oc_launcher):
+def test_a_re_register_inside_a_launch_reports_the_held_session(rig, oc_launcher):
     adapter = oc_launcher()
     sid = adapter.session_id
     adapter.reregister()
@@ -1016,7 +1016,7 @@ def restart_oc_server(adapter, oc_launcher, monkeypatch) -> None:
     assert adapter.supervise_port()                   # a server restart
 
 
-def test_t30_a_server_restart_after_the_first_turn_keeps_the_session_turned(
+def test_a_server_restart_after_the_first_turn_keeps_the_session_turned(
         rig, oc_launcher, monkeypatch):
     """No restart inside a launch makes its session fresh again: after the first turn
     ends, the reports a server restart sends, and a `register` after it, still say
@@ -1046,7 +1046,7 @@ def test_t30_a_server_restart_after_the_first_turn_keeps_the_session_turned(
     assert [r[:2] for r in oc_launcher.fake.requests].count(("POST", "/session")) == 1
 
 
-def test_t30_an_opencode_launch_never_reads_the_session_file_for_an_id(
+def test_an_opencode_launch_never_reads_the_session_file_for_an_id(
         rig, oc_launcher, monkeypatch):
     """Start, a first turn, a server restart and a window reopen, with every record
     read patched to raise."""
@@ -1069,7 +1069,7 @@ def test_t30_an_opencode_launch_never_reads_the_session_file_for_an_id(
     assert [r[:2] for r in oc_launcher.fake.requests].count(("POST", "/session")) == 1
 
 
-def test_t9_new_session_comes_from_register_only_and_clears_with_an_id(rig, adapters,
+def test_new_session_comes_from_register_only_and_clears_with_an_id(rig, adapters,
                                                                       tmp_path):
     root = sessions_root(tmp_path)
     coder = codex_bind(adapters, root, tid=None, new_session=False)
@@ -1090,7 +1090,7 @@ def test_t9_new_session_comes_from_register_only_and_clears_with_an_id(rig, adap
     assert rig.daemon.bindings[CODER_Q].new_session is False, "ignored once an id is held"
 
 
-def test_t25_a_null_agent_model_withdraws_the_report(rig, adapters, tmp_path):
+def test_a_null_agent_model_withdraws_the_report(rig, adapters, tmp_path):
     db = free_db(tmp_path)
     oc = oc_bind(adapters, db, agent_model=FREE_AGENT)
     assert rig.daemon.bindings[CODER_Q].agent_model == FREE_AGENT

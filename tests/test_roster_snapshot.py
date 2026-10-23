@@ -29,8 +29,7 @@ def event(name, *, env=None, harness="claude", session_id="s-1"):
 
 def waiting_for(q) -> bool:
     """Whether the daemon's `agents` answer counts mail waiting for `q`: under
-    `waiting` (§3.11), or under `pending` from a daemon the queue slice has not
-    reached yet."""
+    `waiting`, or under `pending` from an older daemon."""
     from moxi_comms.client import DaemonClient
     c = DaemonClient(daemon_socket()).connect()
     try:
@@ -43,7 +42,7 @@ def waiting_for(q) -> bool:
 def test_the_snapshot_body_is_the_verb_output_verbatim(rig):
     """One rendering exists: snapshot body == `moxi comms agents` for the same daemon
     state -- 'verbatim' held by construction. Mail waiting for a name is in neither
-    ([F30]: the default view is the names an agent can message)."""
+    (the default view is the names an agent can message)."""
     rig.shim(slot=1, name="planner", scope="proj-a")
     rig.shim(slot=2)
     rig.cli(["send", "--posture", "none", "curator@proj-a", "waiting"], slot=1,
@@ -236,7 +235,7 @@ def test_a_partial_roster_response_does_not_advance_the_delta_memory(rig, tmp_pa
 # ------------------------------------------------------------------- the launcher
 
 def test_the_launcher_writes_no_settings_and_passes_no_comms_flag():
-    """comms has no hook, plugin or settings file (design §7.1): the label, the
+    """comms has no hook, plugin or settings file: the label, the
     passthrough, and nothing else of comms' on the argv."""
     s = session.Session("lch1", name="reviewer", scope="proj-a", project="proj-a")
     made = s.write()
@@ -365,12 +364,12 @@ def test_a_GLOBAL_identity_renders_BARE_in_the_native_address():
     """A global identity renders bare, so the native label of a global session is the
     bare name and gains no uniqueness from qualification -- exactly the ambiguity the
     one-way rule already names."""
-    g = session.Session("abc126c", name="steward", global_=True, project="proj-a")
+    g = session.Session("abc126c", name="herald", global_=True, project="proj-a")
     g.write()
     argv = g.claude_argv(["--model", "opus"])
-    assert argv[-2:] == ["-n", "steward"], "global renders bare, not steward@global"
-    assert "steward@global" not in argv
-    assert "steward-at-global" not in argv
+    assert argv[-2:] == ["-n", "herald"], "global renders bare, not herald@global"
+    assert "herald@global" not in argv
+    assert "herald-at-global" not in argv
 
 
 def test_the_x_at_y_ambiguity_is_DECLARED_not_defended(capsys):
@@ -433,8 +432,8 @@ def test_nothing_parses_a_native_label_BACK_into_an_identity():
 def test_the_comms_render_sits_AFTER_the_passthrough_so_a_stale_n_is_overridden():
     """The position is the mechanism. A launcher that has not yet dropped its own
     `-n` puts it in the passthrough; comms' render lands later in the argv and wins,
-    because a repeated `-n` is last-wins (measured at 2.1.235: `-n bl1probeA -n
-    bl1probeB` stores `bl1probeB`). Comms neither inspects nor strips `extra` --
+    because a repeated `-n` is last-wins (measured at 2.1.235: `-n probeA -n
+    probeB` stores `probeB`). Comms neither inspects nor strips `extra` --
     the stale flag is still passed through verbatim, it is simply outranked."""
     s = session.Session("abc126d", name="reviewer", scope="proj-a", project="proj-a")
     s.write()
@@ -467,7 +466,7 @@ def test_the_identity_is_stamped_where_the_cli_reads_it():
     assert "MOXI_COMMS_SHIM_SOCKET" not in env, "no hook ping reads a socket now"
     assert "MOXI_COMMS_GLOBAL" not in env
 
-    g = session.Session("abc128", name="steward", global_=True, project="proj-a")
+    g = session.Session("abc128", name="herald", global_=True, project="proj-a")
     assert g.env(base={})["MOXI_COMMS_GLOBAL"] == "1"
     assert g.env(base={})["MOXI_COMMS_SCOPE"] == "global"
 

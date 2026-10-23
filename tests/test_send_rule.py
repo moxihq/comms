@@ -1,11 +1,11 @@
-"""[B10]: the send rule of §3.3 in full ([R16]) and [R14]'s regression for the end of
-the env path, on both backends.
+"""The send rule in full, and the regression test for every kind of sender now that the
+env path is closed, on both backends.
 
 A process with no claim socket sends under no identity: a launch stamp is refused, with
 or without a live claim file naming it, and the refusal names the identity the stamp
-claims. The operator's lane is unchanged ([C18]). Every sender inside a live session
+claims. The operator's lane is unchanged. Every sender inside a live session
 sends exactly as on main: the Claude shim, codex and OpenCode; a module's own
-process holding bindings as voice's loop does (a `self` root, and a `tree` child
+process holding several bindings (a `self` root, and a `tree` child
 root); a send-only console's binding, in-process and from its `comms send`
 child; and a session whose adapter died, by its claim file. Delivery, attribution and
 the sender's output are main's: `sent <id> to <name> in #names`, one line, and `replying
@@ -13,7 +13,7 @@ to <name> (<tier>, verified) in #names` before it on a reply.
 
 A claim that names no one (an auto-named launch before its first bind, through a daemon
 outage too, and in a dead adapter's claim file) holds no identity: whoami, send and
-reply say so (build-verification-b6-1 MAJOR 1)."""
+reply say so."""
 
 from __future__ import annotations
 
@@ -149,7 +149,7 @@ def test_a_stamp_is_refused_when_a_live_claim_file_names_its_identity(rig, world
 
 
 def test_a_stamp_is_refused_when_no_live_claim_file_names_it(rig):
-    """[B1]'s interim sent as the stamp here; the env path is closed now. The binding
+    """A stamp alone sends nothing now that the env path is closed. The binding
     is there (a shim whose file is not live), the stamp names it, and nothing is sent."""
     bob = rig.shim(name="bob", scope="proj-a", slot=3)
     code, out = rig.cli(["send", "--posture", "none", "nobody", "hello"], name="bob", slot=3, scope="proj-a",
@@ -171,9 +171,9 @@ def test_a_stamped_reply_is_refused_the_same_way(rig):
 
 
 def test_a_global_stamp_names_its_global_identity(rig):
-    code, out = rig.cli(["send", "--posture", "none", "nobody", "hi"], name="steward",
+    code, out = rig.cli(["send", "--posture", "none", "nobody", "hi"], name="herald",
                         env={"MOXI_COMMS_GLOBAL": "1"}, stamp_only=True)
-    assert code == 2 and out.strip() == STAMP_REFUSAL.format(q="steward")
+    assert code == 2 and out.strip() == STAMP_REFUSAL.format(q="herald")
     assert history(rig) == []
 
 
@@ -225,7 +225,7 @@ def test_the_operators_stamp_beside_an_agents_stamp_is_refused(rig):
     assert history(rig) == []
 
 
-# --------------------------------------------------------------------------- [R14]: every kind
+# ---------------------------------------------------------------------------- every kind
 
 def test_a_claude_shim_session_sends_and_replies_as_on_main(rig):
     me = root_of(os.getpid(), TREE)
@@ -279,8 +279,8 @@ def test_an_opencode_session_sends_and_replies_as_on_main(rig, tmp_path, monkeyp
 
 
 class Loop:
-    """Bindings held by a module's own process, as voice's loop holds `operator` and
-    `thinker`: the process registers each binding on its own connection and reports it
+    """Bindings held by a module's own process, one process holding several names (say
+    `operator` and `archivist`): the process registers each binding on its own connection and reports it
     to a `ClaimServer` (a `self` root); the second binding also spawns children as
     `tree` roots of it."""
 
@@ -417,7 +417,7 @@ def test_third_party_sends_to_a_seat_held_through_a_claim_are_as_on_main(rig, wo
 
 
 def test_a_shim_that_died_sends_by_its_claim_file_as_on_main(rig):
-    """The adapter-died path of §3.2: the socket does not answer, the claim file holds
+    """The adapter-died path: the socket does not answer, the claim file holds
     the name and this process is inside its session; nobody else holds the name, so the
     post goes out as the claim on its slot. Once another session binds the name, it is
     refused."""
@@ -474,7 +474,7 @@ def refuses_as_no_identity(rig, path, asked_id):
 
 
 def test_an_auto_named_session_before_its_first_bind_holds_no_identity(rig):
-    """b6-1 MAJOR 1: the launch claim of an auto-named session names no one, so it holds
+    """The launch claim of an auto-named session names no one, so it holds
     no identity. Once it binds, it is the name the daemon gave it, as on main."""
     bob = rig.shim(name="bob", scope="proj-a", slot=3)
     asked = rig.post_from_slot(3, [BOB], "a question", display=BOB)
@@ -540,7 +540,7 @@ def test_a_claim_with_no_name_holds_no_identity_in_any_held_state(state):
 
 
 def test_a_named_offline_claim_still_sends(rig):
-    """§5.6: a session holding a named claim `offline` (never bound here) sends as it,
+    """A session holding a named claim `offline` (never bound here) sends as it,
     on its slot; whoami names it."""
     bob = rig.shim(name="bob", scope="proj-a", slot=3)
     server = ClaimServer("alice", "proj-a", kind="claude-shim", slot=1)

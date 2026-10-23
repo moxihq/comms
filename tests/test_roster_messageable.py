@@ -1,9 +1,9 @@
 """`moxi comms agents` and the session-start roster show the names an agent can message.
 
-[F30], design §7.3 with [R43]-[R46], against the `agents` answer of §3.11:
+Against the daemon's `agents` answer:
 `{"bindings": [...], "waiting": {name: {"count", "oldest"}}, "pending": {},
-"unanswered": [...], "keeps": {...}}`. The daemon's half of that answer is the queue
-slice's; these tests hand the renderers a fake answer of that shape, except the last
+"unanswered": [...], "keeps": {...}}`. The daemon's half of that answer is tested with
+the queue; these tests hand the renderers a fake answer of that shape, except the last
 section, which asks the daemon itself.
 
 The default view (the verb and the snapshot) is one row per live binding whose adapter is
@@ -39,7 +39,7 @@ REVIEWER = {"qualified": "reviewer@my-project", "name": "reviewer", "scope": "my
 
 
 def answer(bindings=(CONSOLE, OPERATOR, EPHEMERAL, REVIEWER), **over):
-    """An `agents` answer in §3.11's one shape."""
+    """An `agents` answer in its one shape."""
     info = {
         "bindings": [dict(b) for b in bindings],
         "waiting": {"reviewer@my-project": {"count": 3, "oldest": NOW - (2 * DAY + 3 * HOUR)},
@@ -61,13 +61,12 @@ DEFAULT = ("operator                 standing   adapter claude-shim\n"
 # ------------------------------------------------------------------- the default view
 
 def test_the_default_view_is_the_messageable_names_and_nothing_else():
-    """[R43]: one row per live binding that is not send-only, `agent-N` and the
-    operator included; no send-only row, no waiting mail, no unanswered rows, no keeps,
-    no voice line, no slot."""
+    """One row per live binding that is not send-only, `agent-N` and the operator
+    included; no send-only row, no waiting mail, no unanswered rows, no keeps, no slot."""
     out = roster_view.render_agents(answer(), now=NOW)
     assert out == DEFAULT
     for absent in ("console", "send-only", "waiting", "curator", "unanswered", "9001",
-                   "slot", "keeps", "voice", "pending", "held"):
+                   "slot", "keeps", "pending", "held"):
         assert absent not in out, absent
 
 
@@ -112,7 +111,7 @@ SEATS = (
 
 
 def test_seats_is_every_binding_then_one_waiting_block_then_unanswered_then_keeps():
-    """[R45]: send-only rows included as `no slot`; the waiting block's rows come from
+    """Send-only rows included as `no slot`; the waiting block's rows come from
     `waiting` (count, and the oldest's wait from `now - oldest`)."""
     assert roster_view.render_agents(answer(), seats=True, now=NOW) == SEATS
 
@@ -166,7 +165,7 @@ def test_codex_and_opencode_layer_one_carry_the_same_view():
 
 
 def test_the_race_line_tests_the_filtered_list():
-    """[R46]: a roster of only send-only rows is empty to the session, so a stamped
+    """A roster of only send-only rows is empty to the session, so a stamped
     session still gets the race line."""
     env = {"MOXI_COMMS_NAME": "rev"}
     envelope, _ = shim_roster.render_snapshot(answer(bindings=(CONSOLE,)), env=env)
@@ -177,7 +176,7 @@ def test_the_race_line_tests_the_filtered_list():
 
 def test_the_verb_and_the_snapshot_print_the_same_from_one_answer(rig, monkeypatch):
     """Snapshot equals verb, through the real CLI path and the real hook, both handed
-    the same §3.11 answer."""
+    the same answer."""
     real = DaemonClient.query
 
     def query(self, kind, **kw):
@@ -193,9 +192,9 @@ def test_the_verb_and_the_snapshot_print_the_same_from_one_answer(rig, monkeypat
 
 # ------------------------------------------------------------------- usable
 
-#: `shim_roster.usable` as it was before this round, verbatim: what a Codex or OpenCode
-#: adapter started before the deploy still runs (design §7.3, "Pre-round adapters").
-def pre_round_usable(info) -> bool:
+#: An older comms' `shim_roster.usable`, verbatim: what a Codex or OpenCode adapter
+#: started before the deploy still runs.
+def older_usable(info) -> bool:
     return (isinstance(info, dict) and isinstance(info.get("bindings"), list)
             and isinstance(info.get("pending"), dict))
 
@@ -212,15 +211,15 @@ def test_usable_refuses_what_the_default_view_cannot_render():
         assert not shim_roster.usable(info), info
 
 
-def test_a_pre_round_usable_accepts_the_answer_because_it_keeps_an_empty_pending():
-    """Verification fold-1 re-check MINOR-1, [R63], §3.11: the answer keeps `pending: {}`
+def test_an_older_usable_accepts_the_answer_because_it_keeps_an_empty_pending():
+    """The answer keeps `pending: {}`
     so an adapter started before the deploy renders its roster at /clear, /compact and
     resume instead of the offline line. Without the key, the old check fails."""
     info = answer()
     assert info["pending"] == {}
-    assert pre_round_usable(info)
+    assert older_usable(info)
     del info["pending"]
-    assert not pre_round_usable(info), "why the key is kept"
+    assert not older_usable(info), "why the key is kept"
 
 
 # ------------------------------------------------------------------- the deltas
@@ -247,8 +246,7 @@ def test_a_delta_never_names_a_send_only_join(monkeypatch, tmp_path):
     assert "console" not in state.read_text(), "the memory holds messageable names only"
 
 
-def test_a_memory_written_before_this_build_announces_no_send_only_leave(monkeypatch,
-                                                                         tmp_path):
+def test_an_older_memory_announces_no_send_only_leave(monkeypatch, tmp_path):
     """The remembered side is filtered too: an old memory holding a send-only row whose
     binding is still live, or gone, announces nothing about it."""
     state = tmp_path / "roster.json"
@@ -262,7 +260,7 @@ def test_a_memory_written_before_this_build_announces_no_send_only_leave(monkeyp
 
 
 def test_an_operator_join_and_leave_ride_the_delta_like_any_name(monkeypatch, tmp_path):
-    """[R44]."""
+    """The operator's join and leave ride the delta as any name's do."""
     state = tmp_path / "roster.json"
     shim_roster.write_state(state, {})
     fake_fetch(monkeypatch, answer(bindings=(OPERATOR,)))
@@ -305,9 +303,8 @@ def test_the_agents_help_says_who_you_can_message():
 # ------------------------------------------------------------------- the daemon's answer
 
 def test_the_daemons_answer_keeps_an_empty_pending_beside_waiting(rig):
-    """MINOR-1 against the daemon itself: with mail waiting for an unbound name, the
-    answer counts it under `waiting`, keeps `pending` empty, and a pre-round `usable`
-    accepts it. (The answer is the queue slice's, §3.11.)"""
+    """The daemon itself: with mail waiting for an unbound name, the answer counts it
+    under `waiting`, keeps `pending` empty, and an older `usable` accepts it."""
     rig.shim(slot=1, name="planner", scope="proj-a")
     code, out = rig.cli(["send", "--posture", "none", "--new-name", "curator@proj-a",
                          "waiting"], slot=1, name="planner", scope="proj-a")
@@ -324,4 +321,4 @@ def test_the_daemons_answer_keeps_an_empty_pending_beside_waiting(rig):
     got = info()
     assert got["pending"] == {}
     assert got["waiting"]["curator@proj-a"]["count"] == 1
-    assert pre_round_usable(got) and shim_roster.usable(got)
+    assert older_usable(got) and shim_roster.usable(got)

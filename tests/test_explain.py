@@ -178,7 +178,7 @@ def test_the_four_cases_each_have_a_sentence():
 
 
 def test_explain_classifies_with_classify_over_handed_at(rig):
-    """Not a second opinion ([R25]). `_explain_query` calls `classify`, the one
+    """Not a second opinion. `_explain_query` calls `classify`, the one
     classifier, and its delivery facts come from `handed_at`."""
     reviewer = rig.shim(slot=2, name="reviewer", scope="proj-a")
     message_id = deliver_one(rig, reviewer)
@@ -196,7 +196,7 @@ def test_explain_classifies_with_classify_over_handed_at(rig):
 
 
 def test_a_hand_over_the_trim_dropped_reads_age_unknown(rig):
-    """[R25]: past `THREAD_IDLE` the daily trim drops the hand-over time, and the page
+    """Past `THREAD_IDLE` the daily trim drops the hand-over time, and the page
     says "age unknown" with no other clause."""
     from moxi_comms import constants
 
@@ -257,8 +257,8 @@ def test_delivered_and_ignored(rig):
 def test_an_unbound_name_is_still_explainable(rig):
     """The case a person asks about most: the session is gone. The binding facts went
     with it and the hand-over time did not, so there is still an answer. The unbind gave
-    the handed, unhandled id a row (design §3.3.2 row 4), and a queued id reads `waiting`
-    before anything else (§3.11)."""
+    the handed, unhandled id a row, and a queued id reads `waiting`
+    before anything else."""
     reviewer = rig.shim(slot=2, name="reviewer", scope="proj-a")
     message_id = deliver_one(rig, reviewer)
     reviewer.stop()
@@ -274,7 +274,7 @@ def test_an_unbound_name_is_still_explainable(rig):
 
 
 def test_a_gone_name_with_nothing_queued_is_not_addressable(rig):
-    """An `agent-N` gets no row at its unbind (design §3.3.2), so the mail it was handed
+    """An `agent-N` gets no row at its unbind, so the mail it was handed
     and never handled is the not-addressable case: unbound, nothing waiting, the cursor
     below it."""
     ghost = rig.shim(slot=3)

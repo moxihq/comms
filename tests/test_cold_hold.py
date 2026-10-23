@@ -1,25 +1,23 @@
-"""Cold hold, under the one queue (comms/refine §3).
+"""Cold hold, under the one queue.
 
 Mail to an agent whose cache is cold is still accepted and kept for it. It arrives at the
 agent's next turn, whether that turn comes on a woken cache, after a clear, or in a new
 session after an exit.
 
-[B1] comms@cold-hold held a cold claude-shim recipient's mail and refused every other
-adapter's. comms/refine §3 replaced that: a cold recipient of ANY adapter is posted and
-its message waits as a row in the one queue ([F1], [F5]); the row goes out at the name's
-next release point (§3.5): a `turn` carrying `handled` on a warm read, a `ready` whose
-source is `startup`, `clear` or `compact`, a `resume` on a warm read, and a register on a
-passing read for unflagged rows. The row stays until the adapter names it handled
-(§3.3.3). A read comms cannot make (no session id, an unreadable transcript, a name that
+A cold recipient of ANY adapter is posted and its message waits as a row in the one
+queue; the row goes out at the name's next release point: a `turn` carrying `handled` on
+a warm read, a `ready` whose source is `startup`, `clear` or `compact`, a `resume` on a
+warm read, and a register on a passing read for unflagged rows. The row stays until the adapter names it handled.
+A read comms cannot make (no session id, an unreadable transcript, a name that
 unbinds mid-check, a failed `session` query) refuses the post at the verb, exit 6, nothing
-posted ([F7], §3.8.3). An `agent-N`'s rows end with its binding (§3.3.2).
+posted. An `agent-N`'s rows end with its binding.
 
 Release points are driven by raw `activity` frames on the adapter's own connection
-(`send_turn`, `send_ready`): the in-branch shim still sends `turn` with no `handled` and
-`ready` with no `source`, which release nothing (§3.14).
+(`send_turn`, `send_ready`). A `turn` with no `handled` and a `ready` with no `source`
+release nothing.
 
-Every rig test runs on both backends (BOTH_BACKENDS), never Discord (comms axiom,
-2026-09-23). The cache clock reads fixture transcripts under the rig's tmp projects root.
+Every rig test runs on both backends (BOTH_BACKENDS), never Discord. The cache
+clock reads fixture transcripts under the rig's tmp projects root.
 """
 
 from __future__ import annotations
@@ -77,7 +75,7 @@ def posted(rig):
 
 
 def held_of(rig, q=REVIEWER_Q):
-    """The ids waiting in `q`'s queue (design §3.2: one queue)."""
+    """The ids waiting in `q`'s queue (one queue holds every row)."""
     with rig.daemon._lock:
         return set(rig.daemon.queue.get(q, {}))
 
@@ -170,7 +168,7 @@ def test_a_plain_send_to_a_cold_shim_is_posted_and_held(rig):
 
 
 def test_wake_the_operators_turn_releases_it(rig):
-    """Cold-held (§3.5): the turn that warms the cache sends `turn`; the read is warm;
+    """Cold-held: the turn that warms the cache sends `turn`; the read is warm;
     the row goes, marked held, and stays until the adapter names it handled."""
     s = cold_shim(rig)
     _out, mid = cold_send(rig)
@@ -188,9 +186,9 @@ def test_wake_the_operators_turn_releases_it(rig):
 
 
 def test_the_shims_stop_on_a_warm_read_releases_the_row(rig, monkeypatch):
-    """§3.5: the shim's Stop sends `turn` with `handled` (empty here, nothing was
-    handed), and on a warm read that releases the row. A `turn` with no `handled` (a
-    pre-round adapter, §3.14) releases nothing: `test_queue.py` tests that with raw
+    """The shim's Stop sends `turn` with `handled` (empty here, nothing was
+    handed), and on a warm read that releases the row. A `turn` with no `handled` (an
+    older adapter's) releases nothing: `test_queue.py` tests that with raw
     frames."""
     s = cold_shim(rig)
     _out, mid = cold_send(rig)
@@ -201,7 +199,7 @@ def test_the_shims_stop_on_a_warm_read_releases_the_row(rig, monkeypatch):
 
 
 def test_clear_releases_it_with_no_read(rig, monkeypatch):
-    """[F2]: a /clear is a release point that reads nothing. The shim's SessionStart
+    """A /clear is a release point that reads nothing. The shim's SessionStart
     sends `ready source=clear`, which releases the row though the cleared session has
     no transcript yet."""
     s = cold_shim(rig)
@@ -215,7 +213,7 @@ def test_clear_releases_it_with_no_read(rig, monkeypatch):
 @pytest.mark.parametrize("restart", [False, True], ids=["no-restart", "restart"])
 def test_relaunch_the_new_sessions_register_releases_it(rig, reboot, restart):
     """A new session binds on a fresh read: the register is a release point for an
-    unflagged row ([R7]); its `ready source=startup` does not hand it twice ([R58])."""
+    unflagged row; its `ready source=startup` does not hand it twice."""
     s = cold_shim(rig)
     _out, mid = cold_send(rig)
     stop_shim(rig, s)
@@ -250,7 +248,7 @@ def test_relaunch_with_other_mail_waiting_the_register_hands_both_oldest_first(r
 
 
 def test_a_resumed_cold_session_waits_for_its_first_warm_turn(rig):
-    """[F10]: `--resume` on a cold transcript releases nothing at the register or at
+    """`--resume` on a cold transcript releases nothing at the register or at
     `ready source=resume`; the resumed session's first `turn` on a warm read does."""
     s = cold_shim(rig)
     _out, mid = cold_send(rig)
@@ -266,7 +264,7 @@ def test_a_resumed_cold_session_waits_for_its_first_warm_turn(rig):
 
 
 def test_a_resumed_warm_session_gets_it_at_its_resume(rig):
-    """[F10]: a resume whose transcript reads warm releases every row at its
+    """A resume whose transcript reads warm releases every row at its
     `ready source=resume`, flagged ones included."""
     write_transcript(SESS_A, 2 * HOUR)
     first = rig.shim(**REVIEWER, session_id=SESS_A)
@@ -285,7 +283,7 @@ def test_a_resumed_warm_session_gets_it_at_its_resume(rig):
 
 
 def test_an_unreadable_shim_read_refuses_the_post(rig):
-    """[F7]: a read comms cannot make is no longer held; the post is refused, exit 6."""
+    """A read comms cannot make is not held; the post is refused, exit 6."""
     write_transcript(SESS_A, lines=["this will not parse", "{ nor this"])
     s = rig.shim(**REVIEWER, session_id=SESS_A)
     code, out = send(rig, REVIEWER_Q)
@@ -337,7 +335,7 @@ def test_the_operators_lane_is_held_and_ends_on_the_last_line(rig):
 
 
 def test_the_verb_reads_cold_and_the_cache_warms_before_routing(rig, monkeypatch):
-    """§3.6: a known read at the daemon decides alone. The sender was told held, its
+    """A known read at the daemon decides alone. The sender was told held, its
     cold-at is past, and the gate, reading warm, delivers live."""
     s = cold_shim(rig)
     real = sending.post
@@ -355,8 +353,8 @@ def test_the_verb_reads_cold_and_the_cache_warms_before_routing(rig, monkeypatch
 
 
 def test_a_shim_that_reports_no_session_id_refuses_the_post(rig):
-    """§3.8.2/§3.8.3: the silent-shim clause is gone. A binding that has reported no
-    session id past the grace, as a shim built before cold-sends does, is a read comms
+    """A binding that has reported no session id past the grace, as an older shim
+    does, is a read comms
     cannot make: the post is refused."""
     rig.shim(**REVIEWER, session_id=None)
     rig.clock.advance(constants.SESSION_ID_GRACE + 1)
@@ -398,7 +396,7 @@ def test_an_agent_n_keeps_its_name_across_a_clear_and_the_clear_releases(
 
 
 def test_an_ended_agent_n_drops_its_rows_from_memory_and_the_record(rig):
-    """§3.3.2: an `agent-N` loses its rows at unbind, in memory and in the record."""
+    """An `agent-N` loses its rows at unbind, in memory and in the record."""
     s = agent_n(rig)
     q = s.identity
     _out, mid = cold_send(rig, q)
@@ -409,7 +407,7 @@ def test_an_ended_agent_n_drops_its_rows_from_memory_and_the_record(rig):
 
 
 def test_boot_drops_an_agent_ns_rows_and_the_same_number_gets_nothing(rig, reboot):
-    """§3.3.2: rows in the record that still name an `agent-N` are dropped at boot, and
+    """Rows in the record that still name an `agent-N` are dropped at boot, and
     an unrelated session numbered the same gets nothing at its first warm turn. A
     chosen name's rows in the same record load."""
     s = agent_n(rig)
@@ -462,7 +460,7 @@ def test_the_last_line_names_each_tier_present(rig):
 
 
 def test_a_held_send_to_an_agent_n_says_it_is_session_only(rig):
-    """§3.8.2: no "with the next other message to it" ([F3])."""
+    """No "with the next other message to it": held mail never rides another message."""
     s = rig.shim(slot=5)
     q = s.identity
     code, out = send(rig, q, "later", "--held")
@@ -488,7 +486,7 @@ def assert_refused(rig, code, out, reason):
 
 
 def test_a_cold_shim_beside_a_cold_bare_binding_both_are_held(rig, adapters):
-    """[F5], [F8]: a bare binding takes held mail like any adapter; its warm `turn`
+    """A bare binding takes held mail like any adapter; its warm `turn`
     releases."""
     cold_shim(rig)
     helper = bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
@@ -535,7 +533,7 @@ def test_an_unreadable_codex_agent_refuses_the_post(rig, adapters):
 
 
 def test_an_unreadable_codex_agent_refuses_a_held_send_too(rig, adapters):
-    """§3.8.1: `--held` reads the caches like any send; an unknown read refuses it."""
+    """`--held` reads the caches like any send; an unknown read refuses it."""
     adapters(slot=5, name="coder", scope="proj-a", adapter="codex")   # no session id
     code, out = send(rig, "reviewer@proj-a,coder@proj-a", "later", "--held", "--new-name")
     assert_refused(rig, code, out, f"comms could not read {CODER_Q}'s cache")
@@ -543,8 +541,8 @@ def test_an_unreadable_codex_agent_refuses_a_held_send_too(rig, adapters):
 
 
 def test_a_session_answer_with_no_verdict_refuses(rig, monkeypatch):
-    """§3.8.3: no verdict is refused like an unknown one (the old-daemon reason is the
-    version check now, §3.10)."""
+    """No verdict is refused like an unknown one (there is no old-daemon reason and no
+    version check)."""
     cold_shim(rig)
     real = rig.daemon._session_query
 
@@ -576,8 +574,8 @@ def test_a_failed_session_query_refuses(rig, monkeypatch):
 
 
 def test_an_adapter_comms_has_no_clock_for_is_delivered_live(rig, monkeypatch):
-    """§3.6, [F6]: an adapter with no clock reads `no-cache`; the send writes `-` for it
-    and the mail goes live, where the verb used to refuse it."""
+    """An adapter with no clock reads `no-cache`; the send writes `-` for it and the mail
+    goes live."""
     s = cold_shim(rig)
     # The daemon's registry with no clock for claude-shim: its read is the no-clock one.
     from moxi_comms import kinds
@@ -606,8 +604,8 @@ def test_a_name_that_unbinds_mid_check_refuses(rig, monkeypatch):
 
 
 def test_a_held_send_prints_no_note_and_the_outcome_line_is_last(rig, adapters):
-    """[R62]: no sender is exempt and nothing says so; the held send's outcome line
-    stays last ([R4]). (`[policy] never_held` is a retired key that now fails the load,
+    """No sender is exempt and nothing says so; the held send's outcome line
+    stays last. (`[policy] never_held` is a retired key that now fails the load,
     `test_cold_sends.py`.)"""
     bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
     code, out = send(rig, HELPER_Q, "anyway")
@@ -620,7 +618,7 @@ def test_a_held_send_prints_no_note_and_the_outcome_line_is_last(rig, adapters):
 
 
 def test_a_refusal_keeps_its_own_line_last(rig, adapters):
-    """records m4, under [R62]: a refusal (here `--held` to a codex agent with no session
+    """A refusal (here `--held` to a codex agent with no session
     id) prints no NOTE, so "Nothing was sent." stays last."""
     adapters(slot=5, name="coder", scope="proj-a", adapter="codex")
     code, out = send(rig, CODER_Q, "later", "--held")

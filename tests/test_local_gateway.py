@@ -59,14 +59,14 @@ def test_the_record_lives_in_state_beside_the_cursors_and_tokens():
     assert paths.record_db().parent == paths.tokens_dir().parent
 
 
-def test_the_file_is_wal_with_the_pragmas_the_design_names(gw):
+def test_the_file_is_wal_with_its_pragmas(gw):
     conn = gw._conn()
     assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert conn.execute("PRAGMA synchronous").fetchone()[0] == 1        # NORMAL
     assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
 
 
-def test_the_schema_is_the_designs_seven_tables_and_no_reply_column(gw):
+def test_the_schema_is_seven_tables_and_no_reply_column(gw):
     conn = gw._conn()
     tables = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -530,7 +530,7 @@ def test_a_retain_days_that_is_not_a_count_of_days_is_a_refusal(value):
 
 def test_the_retention_has_one_owner():
     """`[local] retain_days` is declared once, in the schema; the gateway's default is
-    that declaration, not a second number (design §7.4)."""
+    that declaration, not a second number."""
     from moxi_comms import local_gateway
 
     assert local_gateway.RETAIN_DAYS == config.LOCAL_RETAIN_DAYS == \

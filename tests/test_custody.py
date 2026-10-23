@@ -398,7 +398,7 @@ def test_a_start_the_probe_refuses_never_reaches_the_fence(rig):
 # -------------------------------------------------------- failure is never fatal
 
 def test_a_missing_journal_costs_verification_and_nothing_else(rig):
-    """Today's behaviour, everywhere. The journal is evidence; delivery is the product."""
+    """The journal is evidence; delivery is the product."""
     planner = rig.shim(slot=1, name="planner", scope="proj-a")
     rig.clock.advance(5)
     msg = rig.post_from_slot(1, ["curator@proj-a"], "hi", display="planner@proj-a")
@@ -517,7 +517,7 @@ def test_a_journal_verified_chosen_replay_frame_renders_BARE(rig):
     from the record could never earn that silence; with it, it can, and the digest is
     quiet because the batch really was proven rather than because anyone stopped
     checking. Mail to an offline name is a queue row, released at the bind with
-    `held: true`, not replayed (design §3.3.4, §3.5, §3.7); the release reads the record
+    `held: true`, not replayed; the release reads the record
     and the journal as replay did."""
     planner = rig.shim(slot=1, name="planner", scope="proj-a")
     rig.clock.advance(5)
@@ -531,7 +531,7 @@ def test_a_journal_verified_chosen_replay_frame_renders_BARE(rig):
     reviewer = rig.shim(slot=2, name="reviewer", scope="proj-a")
     wait_for_queue(reviewer, 1)
     wait_until(lambda: reviewer.replaying is False)
-    assert reviewer.queue[0]["held"] is True, "it arrives as a release (§3.5)"
+    assert reviewer.queue[0]["held"] is True, "it arrives as a release"
     assert reviewer.queue[0]["backlog"] is False
     assert reviewer.queue[0]["author"] == {"name": "planner@proj-a", "tier": "chosen",
                                            "attribution": "verified"}
@@ -539,7 +539,7 @@ def test_a_journal_verified_chosen_replay_frame_renders_BARE(rig):
     assert digest.splitlines()[0] == "== comms: 1 message =="
     assert "unverified" not in digest, "the all-verified release stays silent"
     assert "[comms] from planner@proj-a · msg" in digest
-    assert "[held] sent " in digest and ", waited 1h" in digest, "§3.7: it says it waited"
+    assert "[held] sent " in digest and ", waited 1h" in digest, "it says it waited"
 
 
 def test_the_catch_up_note_appears_only_when_frames_GENUINELY_are_unverified(rig):
@@ -582,8 +582,8 @@ def test_a_chosen_directors_backlog_keeps_directive_standing(rig):
     """The biggest functional win of the journal. A declared CHOSEN director sends while
     the recipient is offline; the director's session then ends. On rebind the replayed
     frame is verified against the journal, so the authority the recipient granted still
-    applies -- where before it silently degraded to information standing every time.
-    The offline mail is a queue row released at the bind (design §3.3.4, §3.5); the
+    applies.
+    The offline mail is a queue row released at the bind; the
     release attributes it from the record and the journal as replay did."""
     planner = rig.shim(slot=1, name="planner", scope="proj-a")
     rig.clock.advance(5)
@@ -599,7 +599,7 @@ def test_a_chosen_directors_backlog_keeps_directive_standing(rig):
                         directors=["planner@proj-a"])
     wait_for_queue(reviewer, 1)
     wait_until(lambda: reviewer.replaying is False)
-    assert reviewer.queue[0]["held"] is True, "it arrives as a release (§3.5)"
+    assert reviewer.queue[0]["held"] is True, "it arrives as a release"
     assert reviewer.queue[0]["backlog"] is False
     assert reviewer.queue[0]["author"]["attribution"] == "verified"
     digest = reviewer.on_turn_boundary()

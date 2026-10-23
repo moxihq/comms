@@ -1,7 +1,6 @@
 """Sending as the claim: the send verb takes its identity from its session's claim
 socket, not from the launch stamp, on both backends. Ordinary messaging through the
-claim prints, exits, delivers and attributes as stamped sends did (operator ruling,
-2026-10-06), and `comms whoami` names what the session holds."""
+claim prints, exits, delivers and attributes as any ordinary send, and `comms whoami` names what the session holds."""
 
 from __future__ import annotations
 
@@ -138,8 +137,8 @@ def test_a_stamp_is_refused_while_a_waiting_launch_names_it(rig, world):
 
 
 def test_a_stamp_no_live_session_names_is_refused_too(rig):
-    """[R16]: the env path is closed. A stamp is refused even when no live claim file
-    names its identity (before [B10] it sent as the stamp), and the refusal names the
+    """There is no env path. A stamp is refused even when no live claim file names its
+    identity, and the refusal names the
     identity the stamp claims. The binding is there; only a session holding it sends."""
     rig.shim(name="seat", scope="proj-a", slot=3)
     code, out = rig.cli(["send", "--posture", "none", "nobody", "hello"], name="seat", scope="proj-a",
@@ -183,7 +182,7 @@ def test_a_reply_through_the_claim_goes_out_to_its_own_or_anothers_message(rig, 
 # --------------------------------------------------------------------------- whoami
 
 def test_whoami_prints_the_claim_and_its_session(rig, world):
-    """[R35]: the first line, then `session <id>` when the claim records its launch
+    """The first line, then `session <id>` when the claim records its launch
     session, and nothing else."""
     s = world.real("seat", slot=3)
     code, out = rig.cli(["whoami"], env=as_claim(s))
@@ -234,9 +233,8 @@ def test_a_dead_adapters_file_admits_only_a_process_inside_its_session(rig, worl
 
 
 # --------------------------------------------------------------------------- ordinary sends
-# Ordinary messaging is no harder for the claim (operator ruling, 2026-10-06): bare-name
-# sends between agents and sends through a claim print what main printed, exit as main
-# exited, and are delivered and attributed as on main. The one visible difference the
+# Ordinary messaging is no harder for the claim: bare-name sends between agents and sends
+# through a claim print, exit, deliver and attribute as any ordinary send. The one visible difference the
 # released-slot keep makes is which slot a `next-free` launch gets within SLOT_KEEP of
 # another session's exit; that is asserted and nothing else changes.
 
@@ -248,7 +246,7 @@ def sent_line(out, to):
 
 
 def test_bare_name_sends_between_agents_are_unchanged(rig):
-    """A bare name is the global identity ([C10]), so the bare-name case is two global
+    """A bare name is the global identity, so the bare-name case is two global
     agents."""
     a = rig.shim(name="alice", slot=1)
     b = rig.shim(name="bob", slot=3)

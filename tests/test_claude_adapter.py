@@ -1,4 +1,4 @@
-"""comms' Claude adapter process as a turns caller (design §5.9, §5.2, §5.7's outcomes).
+"""comms' Claude adapter process as a turns caller.
 
 The adapter runs a `ClaudeShim` on the rig's daemon and reaches a stand-in endpoint that
 speaks turns' socket protocol (`turns_endpoint.FakeEndpoint`) through the real
@@ -64,7 +64,7 @@ def endpoints():
 @pytest.fixture
 def bare_adapter(rig):
     """An adapter whose shim states `stated` from its bind, as `moxi comms claude` hands
-    it the id the launch named (RULE D6; None for an unnamed resume). The cache read is
+    it the id the launch named (None for an unnamed resume). The cache read is
     the real one: no transcript is written for it."""
     made: list[ClaudeAdapter] = []
 
@@ -113,7 +113,7 @@ def binding(rig, qualified=REVIEWER):
 
 def test_before_its_endpoint_the_adapter_holds_mail_and_a_send_reports_waiting(
         rig, bare_adapter, endpoints, frames):
-    """RULE D6 on the real cache read: a fresh launch states its named id from its bind,
+    """On the real cache read: a fresh launch states its named id from its bind,
     with no transcript and no turn, so cache reads `fresh` and the send reads `waiting`."""
     a = bare_adapter()
     assert wait_until(lambda: binding(rig) is not None)
@@ -154,7 +154,7 @@ def test_waiting_is_data_on_the_library_result(rig, bare_adapter):
 
 def test_a_launch_resuming_an_expired_session_reads_its_clock_before_the_endpoint(
         rig, bare_adapter):
-    """RULE D6: a resume names its id, so cache reads that transcript's clock at the
+    """A resume names its id, so cache reads that transcript's clock at the
     bind, and a send to the expired session is held cold, not refused `cache-unread`."""
     from conftest import write_transcript
     write_transcript(SESSION, age=3 * 3600)
@@ -167,8 +167,8 @@ def test_a_launch_resuming_an_expired_session_reads_its_clock_before_the_endpoin
 
 
 def test_an_unnamed_resume_states_no_id_and_its_send_fails_closed(rig, bare_adapter):
-    """RULE D6's exception: until the look the binding has no id, so the hold refuses
-    `cache-unread` (exit 6), as before the rule."""
+    """An unnamed resume is the exception: until the look the binding has no id, so the
+    hold refuses `cache-unread` (exit 6)."""
     bare_adapter(stated=None)
     assert wait_until(lambda: binding(rig) is not None)
     assert binding(rig).session_id is None

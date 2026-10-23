@@ -90,7 +90,7 @@ def test_an_empty_session_id_is_refused(rig):
 
 
 def test_a_director_with_a_reply_once_ask_out_awaits_its_worker(rig):
-    """[F3]'s first fact: the director's own session reads its `awaiting`."""
+    """The director's own session reads its `awaiting`."""
     reviewer = rig.shim(**REVIEWER)
     rig.shim(**PLANNER)
     ask = send(rig, P, "do it", "--posture", "once", who=REVIEWER)
@@ -101,7 +101,7 @@ def test_a_director_with_a_reply_once_ask_out_awaits_its_worker(rig):
 
 
 def test_a_worker_that_asked_its_own_director_once_awaits_the_director(rig):
-    """[C8]: a worker that asked its director with `--posture once` and waits on the
+    """A worker that asked its director with `--posture once` and waits on the
     answer counts too. The director is global, so it is awaited bare."""
     rig.shim(slot=6, name="lead", global_=True)
     planner = rig.shim(**PLANNER, directors=("lead",))

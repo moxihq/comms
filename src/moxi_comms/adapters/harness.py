@@ -337,14 +337,14 @@ class HarnessAdapter:
             if self._stop.is_set():
                 # A bind must not outlive `stop()`, as the Claude shim declines it: the
                 # daemon would hold it until the process exits, and `bound` would write
-                # back the claim file `stop()` removed (s125.1).
+                # back the claim file `stop()` removed.
                 client.close()
                 raise DroppedAfterAnswer("comms offline: the adapter stopped while the "
                                          "daemon answered register")
             if not client.connected:
                 # The adapter reads bound only while the connection its register was
                 # answered on is open; a drop at any point after the answer sends it
-                # back to register (s113.1). The daemon answered and the connection
+                # back to register. The daemon answered and the connection
                 # closed before this thread got here: `_on_daemon_close` has already
                 # run (the reader thread marks the client closed before calling it)
                 # and saw `offline` still True, so nothing will run again for this
@@ -525,7 +525,7 @@ class HarnessAdapter:
         Kept for a port whose launch reads its record. Neither the codex nor the
         opencode launcher calls this, `read_for_register` or `read_for_attempt`: each
         launch creates its own thread or session and reads no id from the record, as a
-        Claude launch starts a new session (operator ruling, 2026-10-08)."""
+        Claude launch starts a new session."""
         raise NotImplementedError
 
     def begin_attempt(self) -> None:

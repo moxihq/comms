@@ -97,8 +97,7 @@ Send boundary, enforced here:
 Resolution is tier/route resolution, never a liveness check: nothing about delivery
 timing is inferred from it.
 
-The cold-cache hold is a separate step after resolution (cold-sends, the operator's
-rulings of 2026-10-05; cold-hold, his word of 2026-10-09). THE RULE: a message reaches a
+The cold-cache hold is a separate step after resolution. THE RULE: a message reaches a
 bound agent live only when comms has read its cache as warm, or as fresh (nothing cached
 to lose). The verdict is the daemon's own read, carried in its `session` answer for each
 bound recipient, so it is the read the daemon delivers by. A recipient whose cache reads
@@ -383,7 +382,7 @@ def cmd_explain(args, ctx: Context) -> int:
 def cmd_owner(args, ctx: Context) -> int:
     """Which comms identity owns one session id now, and whom it awaits.
 
-    A READING verb, for a launcher's keep-warm step, which asks it whether a
+    A READING verb, for a program that nudges idle sessions, which asks it whether a
     session it may nudge is a director with an ask out: one `owner` query to the daemon, which answers from
     `session_owner` and computes `awaiting` exactly as the Stop hook's `owed` query does.
     It posts nothing, writes nothing, reaches no credential, and changes no hold, pend,
@@ -972,7 +971,8 @@ def build_parser(prog: str = PROG) -> argparse.ArgumentParser:
     x.set_defaults(func=cmd_explain)
 
     # No help=: argparse prints a subcommand's row only when it has one, and the braces
-    # below leave it out (a keep-warm caller's query, not a verb an agent reads about).
+    # below leave it out (a query for a program that nudges sessions, not a verb an
+    # agent reads about).
     o = sub.add_parser("owner")
     o.add_argument("session_id", metavar="session-id",
                    help="a session id, as the session's harness names it")
@@ -1021,7 +1021,7 @@ def cmd_service(args, ctx: Context) -> int:
 
 
 #: Verbs that parse and run but no help list names: `moxi comms --help` leaves them out of
-#: its braces and its rows. `owner` is a keep-warm caller's query.
+#: its braces and its rows. `owner` is a query for a program that nudges sessions.
 UNLISTED_VERBS = ("owner",)
 
 

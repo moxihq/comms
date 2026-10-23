@@ -255,67 +255,67 @@ def test_resolve_answers_ever_bound_none_when_the_journal_is_closed(rig):
 # --------------------------------------------------------------------------- retired
 
 def test_directory_retired_and_standing_row_ignores_a_retired_row(rig):
-    retire("launch-lead", "proj-old")
+    retire("captain", "proj-old")
     conn = directory.connect(directory_db(), read_only=True)
     try:
-        assert directory.retired(conn, "launch-lead", "proj-old")
-        assert not directory.retired(conn, "launch-lead", "global")
-        assert directory.standing_row(conn, "launch-lead", "proj-old") is None
-        assert all(r["name"] != "launch-lead" for r in directory.standing_rows(conn))
+        assert directory.retired(conn, "captain", "proj-old")
+        assert not directory.retired(conn, "captain", "global")
+        assert directory.standing_row(conn, "captain", "proj-old") is None
+        assert all(r["name"] != "captain" for r in directory.standing_rows(conn))
     finally:
         conn.close()
 
 
 def test_a_retired_identity_cannot_bind(rig):
-    retire("launch-lead", "proj-old")
+    retire("captain", "proj-old")
     c = DaemonClient(daemon_socket()).connect()
     try:
         with pytest.raises(DaemonError) as e:
-            c.register(name="launch-lead", scope="proj-old", adapter="claude-shim")
-        assert str(e.value) == RETIRED_BIND.format(q="launch-lead@proj-old",
-                                                   name="launch-lead")
+            c.register(name="captain", scope="proj-old", adapter="claude-shim")
+        assert str(e.value) == RETIRED_BIND.format(q="captain@proj-old",
+                                                   name="captain")
     finally:
         c.close()
-    glob = rig.shim(slot=2, name="launch-lead")
-    assert glob.identity == "launch-lead", "the global name binds"
+    glob = rig.shim(slot=2, name="captain")
+    assert glob.identity == "captain", "the global name binds"
 
 
 @pytest.mark.parametrize("argv", [
-    ["send", "--posture", "none", "launch-helper@proj-old", "x"],
-    ["send", "--check", "--posture", "none", "launch-helper@proj-old", "x"],
+    ["send", "--posture", "none", "mate@proj-old", "x"],
+    ["send", "--check", "--posture", "none", "mate@proj-old", "x"],
 ])
 def test_a_send_or_check_to_a_retired_identity_is_refused(rig, argv):
-    retire("launch-helper", "proj-old")
+    retire("mate", "proj-old")
     before = len(history(rig))
     code, out = rig.cli(argv, slot=1, name="planner")
     assert code == 2
-    assert out.strip() == RETIRED_SEND.format(q="launch-helper@proj-old",
-                                              name="launch-helper")
+    assert out.strip() == RETIRED_SEND.format(q="mate@proj-old",
+                                              name="mate")
     assert len(history(rig)) == before, "nothing posted"
 
 
 def test_a_reply_to_a_retired_author_is_refused(rig):
-    rig.shim(slot=2, name="launch-helper", scope="proj-old")
+    rig.shim(slot=2, name="mate", scope="proj-old")
     m = rig.post_from_slot(2, ["planner"], "from the old address",
-                           display="launch-helper@proj-old")
+                           display="mate@proj-old")
     rig.shims[-1].stop()
-    assert wait_until(lambda: "launch-helper@proj-old" not in rig.daemon.bindings)
-    retire("launch-helper", "proj-old")
+    assert wait_until(lambda: "mate@proj-old" not in rig.daemon.bindings)
+    retire("mate", "proj-old")
     before = len(history(rig))
     code, out = rig.cli(["reply", "--posture", "none", str(m.id), "answer"], slot=1,
                         name="planner")
     assert code == 2
-    assert RETIRED_SEND.format(q="launch-helper@proj-old",
-                               name="launch-helper") in out
+    assert RETIRED_SEND.format(q="mate@proj-old",
+                               name="mate") in out
     assert len(history(rig)) == before
 
 
 def test_explain_and_cache_refuse_a_retired_identity(rig):
-    retire("launch-lead", "proj-old")
-    text = RETIRED_SEND.format(q="launch-lead@proj-old", name="launch-lead")
-    code, out = rig.cli(["explain", "launch-lead@proj-old"])
+    retire("captain", "proj-old")
+    text = RETIRED_SEND.format(q="captain@proj-old", name="captain")
+    code, out = rig.cli(["explain", "captain@proj-old"])
     assert code == 2 and out.strip() == text
-    code, out = rig.cli(["cache", "launch-lead@proj-old"],
+    code, out = rig.cli(["cache", "captain@proj-old"],
                         env={"MOXI_COMMS_OPERATOR": "900001"})
     assert code == 2 and text in out
 
@@ -323,15 +323,15 @@ def test_explain_and_cache_refuse_a_retired_identity(rig):
 def test_a_recorded_tag_naming_a_retired_identity_is_held_for_nobody(rig):
     """A line zero typed by hand (or written before the retirement): the live route and
     a rescan write nothing for it, and the global name is untouched."""
-    retire("launch-lead", "proj-old")
+    retire("captain", "proj-old")
     rig.shim(slot=1, name="planner")
-    m = rig.post_from_slot(1, ["launch-lead@proj-old", "launch-lead"], "two",
+    m = rig.post_from_slot(1, ["captain@proj-old", "captain"], "two",
                            display="planner")
-    assert wait_until(lambda: m.id in queued(rig.daemon, "launch-lead"))
+    assert wait_until(lambda: m.id in queued(rig.daemon, "captain"))
     rig.daemon.rescan()
-    assert not queued(rig.daemon, "launch-lead@proj-old")
-    assert not record_rows(rig.gateway, "launch-lead@proj-old")
-    assert m.id in queued(rig.daemon, "launch-lead")
+    assert not queued(rig.daemon, "captain@proj-old")
+    assert not record_rows(rig.gateway, "captain@proj-old")
+    assert m.id in queued(rig.daemon, "captain")
 
 
 def test_the_provisioner_does_not_reactivate_a_retired_row(rig):

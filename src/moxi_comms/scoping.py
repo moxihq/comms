@@ -38,7 +38,7 @@ def project_key(cwd: str | Path | None = None, env=None) -> str:
 
 
 def qualify(name: str, scope: str) -> str:
-    """Qualified form. Global identities render bare (`agent-7`, `steward`)."""
+    """Qualified form. Global identities render bare (`agent-7`, `herald`)."""
     return name if scope == GLOBAL else f"{name}@{scope}"
 
 

@@ -130,16 +130,14 @@ def slot_keeps(env=None) -> Path:
 
 
 def cold_gate(env=None) -> Path:
-    """STATE/comms/cold-gate.json -- the daemon's cold-cache gate file.
+    """STATE/comms/cold-gate.json -- the cold-cache gate file an older daemon kept.
 
-    `{"held": {name: [ids]}, "refused": {name: [ids]}}`: the ids the daemon's gate held
-    for a claude-shim name's own next turn, and the ids it refused for an adapter that
-    takes no delayed mail. The record has no `[next-turn]` token for a cold-held id, so
-    this file is the only place a restart can rebuild one from. Its `refused` half is a
-    second copy: the local record's `cold_refusals` table is the first. Only the daemon
-    writes it, whole, with an atomic replace. STATE, not DATA: it describes this box's
-    daemon. Losing it costs a re-read of the cold-held mail at the next replay or rescan,
-    which the gate then checks again.
+    `{"held": {name: [ids]}, "refused": {name: [ids]}}`: the ids that daemon's gate held
+    for a name's own next turn, and the ids it refused for an adapter that takes no
+    delayed mail. Nothing writes it now. A daemon reads it once, at its first boot with
+    the delivery queue: the held ids become queue rows, the refused half is dropped, and
+    the file is deleted, as is the local record's `cold_refusals` table
+    (`Daemon._migrate_queue`). STATE, not DATA: it describes this box's daemon.
     """
     return state_dir(env) / "cold-gate.json"
 

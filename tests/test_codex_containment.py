@@ -1,4 +1,4 @@
-"""The Codex roster settings handed to turns under RULE T6.
+"""The Codex roster settings handed to turns.
 
 turns owns cwd, developer instructions and approval policy. comms owns the roster and
 hands every other Codex thread setting to the host as one unread ``options`` mapping.

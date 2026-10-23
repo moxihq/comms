@@ -67,7 +67,7 @@ def test_the_turn_ledger_lives_in_the_shared_base():
     assert ledger.completed({"id": "prompt-2", "status": "error"}) is None
     assert not ledger.tracks("prompt-2")
 
-# ------------------------------------------ M2: the held ids ([R19], §4.6)
+# ------------------------------------------------------------------ the held ids
 
 class TurnPort(RecordingPort):
     """A port that reports each digest's turn end by id, as codex and opencode do."""
@@ -222,7 +222,7 @@ def test_a_dropped_batch_and_a_returned_delivery_hold_nothing():
     assert plain.held_ids == set()
 
 
-# ------------------------------------------ [B8] the turn frame and the clamp (§3.3.3, [R3])
+# ------------------------------------------------------- the turn frame and the clamp
 
 class FakeDaemon:
     """The binding's connection, as far as `notify_activity` needs it."""
@@ -296,7 +296,7 @@ def test_owe_unhandled_names_each_id_once():
 
 
 def test_a_ready_that_cannot_be_sent_is_owed_to_the_next_register():
-    """§3.4 item 1: a `ready` whose moment comes while the adapter is not bound (or its
+    """A `ready` whose moment comes while the adapter is not bound (or its
     frame cannot go out) is sent once, right after the next register's answer."""
     port = bound_port(connected=False)
     port.report_ready("compact")

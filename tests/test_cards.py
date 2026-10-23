@@ -220,7 +220,7 @@ def test_the_self_miss_names_the_path_and_a_peer_miss_does_not():
     assert "rename it into place" in out
     code, out = run(["whois", "reviewer"], env=env)
     assert code == 0 and "/" not in out
-    # A bare `planner` is the global planner, a peer of planner@proj-a ([C10]).
+    # A bare `planner` is the global planner, a peer of planner@proj-a.
     code, out = run(["whois", "planner"], env=env)
     assert code == 0 and "/" not in out
 
@@ -318,7 +318,7 @@ def test_a_directory_at_a_card_path_is_refused():
 # ------------------------------------------------------------------- scope resolution
 
 def test_a_bare_name_reads_the_global_card_whatever_the_claim_scope():
-    """A bare name is the global identity, whoever asks ([C10], §7.10.2): neither the
+    """A bare name is the global identity, whoever asks: neither the
     claim scope nor the working directory picks a scoped card."""
     write_card("x@proj-a", "the claim-scope card")
     write_card("x@proj-b", "the working-directory card")
@@ -346,7 +346,7 @@ def test_comms_global_makes_global_the_own_scope():
 
 def test_with_no_claim_the_project_key_is_not_a_scope():
     """An unclaimed process gets the global card for a bare name: the project key
-    (`MOXI_COMMS_PROJECT`, `project_key`'s own override) is never a scope ([R75])."""
+    (`MOXI_COMMS_PROJECT`, `project_key`'s own override) is never a scope."""
     write_card("x@proj-b", "the project card")
     code, out = run(["whois", "x"], env={"MOXI_COMMS_PROJECT": "proj-b"})
     assert code == 0
@@ -354,8 +354,8 @@ def test_with_no_claim_the_project_key_is_not_a_scope():
 
 
 def test_an_unusable_own_scope_plays_no_part_and_adds_no_note():
-    """The own scope is not read for a bare lookup any more, so a scope that is not a
-    name changes nothing and is not mentioned (§7.10.2: the note goes)."""
+    """The own scope is not read for a bare lookup, so a scope that is not a name
+    changes nothing and is not mentioned."""
     write_card("x", "the global card")
     code, out = run(["whois", "x"], env={"MOXI_COMMS_SCOPE": "my repo"})
     assert code == 0
@@ -366,10 +366,10 @@ def test_an_unusable_own_scope_plays_no_part_and_adds_no_note():
 
 
 def test_a_bare_name_falls_through_to_global():
-    write_card("steward", "I keep the record.")
-    code, out = run(["whois", "steward"], env={"MOXI_COMMS_SCOPE": "proj-a"})
+    write_card("herald", "I keep the record.")
+    code, out = run(["whois", "herald"], env={"MOXI_COMMS_SCOPE": "proj-a"})
     assert code == 0
-    assert out.startswith("[comms card] steward (") and "I keep the record." in out
+    assert out.startswith("[comms card] herald (") and "I keep the record." in out
 
 
 def test_the_header_names_the_identity_it_answered_for():
@@ -381,8 +381,8 @@ def test_the_header_names_the_identity_it_answered_for():
     # A bare `planner` from proj-a answers for the global planner, and says so.
     code, out = run(["whois", "planner"], env={"MOXI_COMMS_SCOPE": "proj-a"})
     assert code == 0 and out.startswith("[comms card] planner ")
-    write_card("steward", "two")
-    assert run(["whois", "steward@global"])[1].startswith("[comms card] steward (")
+    write_card("herald", "two")
+    assert run(["whois", "herald@global"])[1].startswith("[comms card] herald (")
 
 
 # ------------------------------------------------------------------- the render contract

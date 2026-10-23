@@ -1,6 +1,6 @@
 """How cold is an agent's prompt cache: comms' one seam to the cache module.
 
-**THE RULE (cold-sends, the operator's rulings of 2026-10-05).** A message reaches a bound
+**THE RULE (cold sends).** A message reaches a bound
 agent live only when comms has read that agent's cache as warm, or as fresh (nothing
 cached to lose). Every other live delivery is held, whoever sent it and by whatever path.
 No sender, lane, flag or adapter is exempt. The daemon (`Daemon._gate`) and the send verb

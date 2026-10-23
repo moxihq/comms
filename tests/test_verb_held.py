@@ -1,10 +1,9 @@
-"""The send verb's half of comms/refine §3 ([B8] verb slice): `--held` and `[held]`, the
-send's `[cold-at:…]` ([C12], [R70]), the refusal of a read comms cannot make ([F7]),
-`--held` to the operator ([F21], [R12]), the held frame mark ([R10]) and the one version
-check on `ping` ([R14]).
+"""The send verb's half of the queue: `--held` and `[held]`, the send's `[cold-at:…]`,
+the refusal of a read comms cannot make, `--held` to the operator, the held frame mark
+and the one version check on `ping`.
 
-The daemon's use of the cold-at (§3.6) is the queue slice's; here the token is pinned
-as the verb writes it, from `session` answers the daemon is made to give.
+The daemon's use of the cold-at is tested with the queue; here the token is pinned as
+the verb writes it, from `session` answers the daemon is made to give.
 """
 
 from __future__ import annotations
@@ -47,10 +46,10 @@ def answers(rig, monkeypatch, table: dict):
     monkeypatch.setattr(rig.daemon, "_session_query", session)
 
 
-# ------------------------------------------------------------------ [R70] the cold-at
+# ------------------------------------------------------------------------ the cold-at
 
 def test_the_cold_at_is_written_per_tag_from_each_session_answer(rig, monkeypatch):
-    """§3.13 test 19: a warm Claude x (age 600, ttl 3600), a cold Codex y (age 600 on a
+    """A warm Claude x (age 600, ttl 3600), a cold Codex y (age 600 on a
     row of 300 s), an unbound z, a fresh f and a no-clock n, in tag order."""
     for slot, name in ((2, "x"), (3, "y"), (4, "f"), (5, "n")):
         rig.shim(slot=slot, name=name)
@@ -132,7 +131,7 @@ def test_an_unbound_recipient_alone_gets_the_ask_time_and_the_not_bound_note(rig
     assert machine_line.parse(flagged.content).cold_at is None
 
 
-# ------------------------------------------------------------ [F7] reads comms cannot make
+# ----------------------------------------------------------------- reads comms cannot make
 
 def test_an_unknown_read_refuses_the_send_held_or_not(rig, monkeypatch):
     rig.shim(slot=2, name="x")
@@ -196,7 +195,7 @@ def test_held_to_a_bound_recipient_says_when_it_reads_it(rig):
     assert "held:" not in out
 
 
-# ------------------------------------------------------------- [F21] --held to the operator
+# ------------------------------------------------------------------- --held to the operator
 
 def operator_env(rig):
     return {"MOXI_COMMS_OPERATOR": rig.prov.operator_user_id}
@@ -213,7 +212,7 @@ def test_held_to_the_operator_alone_writes_no_held(rig):
 
 
 def test_held_to_the_operator_and_another_flags_the_line_and_says_so(rig):
-    """§3.13 test 15: one post with `[held]`, the NOTE printed, the operator gets it live
+    """One post with `[held]`, the NOTE printed, the operator gets it live
     and x waits."""
     operator = rig.shim(slot=4, name="operator", global_=True)
     x = rig.shim(slot=2, name="x")
@@ -232,12 +231,12 @@ def test_held_to_the_operator_and_another_flags_the_line_and_says_so(rig):
     assert msg.id not in [p["message_id"] for p in x.queue]
 
 
-# ------------------------------------------------------------------ [R14] one version check
+# ------------------------------------------------------------------------ one version check
 
 @pytest.mark.parametrize("answer", [{}, {"cli_protocol": 0}, {"cli_protocol": 1},
                                     {"cli_protocol": 3}])
 def test_a_daemon_on_another_verb_protocol_refuses_every_send(rig, monkeypatch, answer):
-    """§3.13 test 16: exit 4 with §3.10's text, nothing posted."""
+    """Exit 4 with the protocol refusal's text, nothing posted."""
     rig.shim(slot=2, name="x")
     real = DaemonClient.request
 
@@ -263,7 +262,7 @@ def test_a_daemon_on_another_verb_protocol_refuses_every_send(rig, monkeypatch, 
 @pytest.mark.parametrize("side", ["sending", "daemon"])
 def test_a_verb_and_a_daemon_from_either_side_of_cache_code_refuse_each_other(
         rig, monkeypatch, side):
-    """build verification b15-1 [L11]: the session answer gained `cache_code` at verb
+    """The session answer gained `cache_code` at verb
     protocol 2. An old verb (1) on a new daemon (2), and a new verb (2) on an old daemon
     (1), each exit 4 with nothing sent, so neither reads the other's session answer."""
     rig.shim(slot=2, name="x")
@@ -291,16 +290,16 @@ def test_ping_answers_the_verb_protocol_and_register_the_claims_one(rig):
     assert (CLI_PROTOCOL, PROTOCOL_VERSION) == (2, 1)
 
 
-# --------------------------------------------------------------- [R10] the held frame mark
+# --------------------------------------------------------------------- the held frame mark
 
 def test_the_held_mark_says_when_it_was_sent_and_how_long_it_waited():
-    """§3.13 test 14."""
+    """The held mark on the frame line: when it was sent and how long it waited."""
     now = time.time()
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3 * 3600 - 30))
     assert held_mark(stamp, now=now) == f"[held] sent {sent_at(stamp, now=now)}, waited 3h"
     assert held_mark("not a time", now=now) == "[held]"
     payload = {"message_id": "4611686018427391719", "room": "#names",
-               "author": {"name": "core-lead", "tier": "chosen", "attribution": "verified"},
+               "author": {"name": "captain", "tier": "chosen", "attribution": "verified"},
                "posture": "once", "timestamp": stamp, "held": True}
     line = frame_line(payload, now=now)
     assert line.endswith(f"· [held] sent {sent_at(stamp, now=now)}, waited 3h · "

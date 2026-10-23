@@ -1,4 +1,4 @@
-"""A mock record good enough to BE the record (bell-is-record).
+"""A mock record good enough to BE the record.
 
 The interface it implements lives in `gateway.py`, and `local_gateway.LocalGateway`
 implements the same one on the box's SQLite record. The daemon, the sender and the
@@ -59,9 +59,8 @@ class MockGateway:
 
     # Declared AND enforced (see max_message_id): seconds of round trip on the record's
     # high-water-mark read. The mock answers it out of memory in microseconds; a real
-    # record under load can take tens to hundreds of ms, and that difference
-    # is the whole reason the repo's smokes structurally could not see a register-
-    # concurrency bug -- the daemon's lock hold was ~5ms in test and ~200ms in production.
+    # record under load can take tens to hundreds of ms, and a race that needs the slow
+    # read never shows at mock speed.
     # Set it and the round trip's DURATION becomes a test variable, in process.
     # Default 0.0 -- every existing test runs at mock speed.
     #

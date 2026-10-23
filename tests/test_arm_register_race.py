@@ -1,4 +1,4 @@
-"""s113.1: a daemon arm reads `bound` only while the connection its register was answered
+"""A daemon arm reads `bound` only while the connection its register was answered
 on is open, and a drop at any point after the answer sends it back to register.
 
 Every arm that registers through shared code is driven: the `ClaimServer`'s own arm
@@ -7,7 +7,7 @@ adapters' `connect_daemon` (codex and OpenCode). The drop is forced at each
 point, not waited for:
 
 * before the answer: the arm's connection is closed before the register goes out;
-* between the answer and the arm taking the binding (the race b14-1 NOTE 1 found): the
+* between the answer and the arm taking the binding: the
   daemon is stopped, or the connection dropped, after the register is answered, and the
   register returns only once the reader thread has run the arm's close handler;
 * after the binding: the daemon is stopped under a bound arm.
@@ -220,12 +220,12 @@ def test_a_drop_at_a_reregister_after_a_restart_sends_the_arm_back_to_register(a
 
 
 def test_a_stop_under_an_answered_register_leaves_nothing_bound(arm):
-    """s125.1: the arm's owner stops it while its supervisor re-registers (a service
+    """The arm's owner stops it while its supervisor re-registers (a service
     stopped during a daemon outage), and the register is answered just as `stop()`
     runs. The arm declines the bind, as the Claude shim does: the daemon holds nothing
-    for it and the claim file `stop()` removed stays removed. Before, the arm took the
-    binding, which the daemon held until the process exited, and wrote the file back
-    as `bound` after `stop()` had removed it."""
+    for it and the claim file `stop()` removed stays removed. Otherwise the arm would take the
+    binding, which the daemon holds until the process exits, and write the file back
+    as `bound` after `stop()` removed it."""
     arm.start()
     assert wait_until(lambda: holds(arm), timeout=5.0), arm.kind
     key = claim_key(arm)
@@ -243,10 +243,9 @@ def test_a_stop_under_an_answered_register_leaves_nothing_bound(arm):
 
 def test_a_plain_stop_leaves_no_claim_file(arm):
     """A bound arm stopped with no register in flight: the claim file `stop()` removed
-    stays removed. Before, a harness adapter's reader thread ran its close handler after
-    `claims.close()` had unlinked the file, and `went_offline` wrote it back as
-    `offline`, every time (build verification leftovers-comms MINOR 2). The
-    `ClaimServer` arms never did; they are here for parity."""
+    stays removed, even when a harness adapter's reader thread runs its close handler
+    after `claims.close()` has unlinked the file, where `went_offline` would write it
+    back as `offline`. The `ClaimServer` arms are here for parity."""
     arm.start()
     assert wait_until(lambda: holds(arm), timeout=5.0), arm.kind
     key = claim_key(arm)

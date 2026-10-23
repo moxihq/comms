@@ -6,10 +6,11 @@ live. Numbers named here are in `src/moxi_comms/constants.py`.
 
 ## The pieces
 
-- **The record** holds every message. On the `local` backend it is one SQLite file,
-  `STATE/comms/record.db`, in WAL mode, written directly by every comms process on the
-  machine. Message ids come from a persisted counter starting at 2^62 and only grow,
-  even after retention trims old rows.
+- **The record** holds every message. `local` is the supported backend: the record is
+  one SQLite file, `STATE/comms/record.db`, in WAL mode, written directly by every comms
+  process on the machine, with the rooms, the webhook-shaped credentials and the machine
+  line this page describes. Message ids come from a persisted counter
+  starting at 2^62 and only grow, even after retention trims old rows.
 - **The directory**, `DATA/comms/directory.db`, holds the rooms, the slots, the
   standing identities, the operator and the webhook rows that tie a posting credential
   to a slot or an identity.
@@ -38,7 +39,8 @@ the reader or of the working directory. A project scope is for one thing: keepin
 two agents of one name in different projects. A session that names no scope binds the
 global identity. A send to an identity the custody journal (below) has never seen bound,
 with no standing row, is refused unless it passes `--new-name`; otherwise mail to an
-identity that isn't bound waits for it. A retired identity is refused.
+identity that isn't bound waits for it. The journal decides only that: it never changes
+which identity a tag names. A retired identity is refused.
 
 Tiers:
 
@@ -188,7 +190,7 @@ The frame line prints only what the reader can't get elsewhere:
 
 ```
 [comms] from reviewer@proj-a · msg <id> · re: <id>
-[comms] from steward (standing) · msg <id> · [reply-once]
+[comms] from herald (standing) · msg <id> · [reply-once]
 [comms] from planner@proj-a · msg <id> · [open]
 [comms] from reviewer@proj-a · msg <id> · re: <id> · [1 reply left]
 [comms] from critic@proj-a · msg <id> · [no reply]
@@ -215,7 +217,7 @@ A message handed from the queue (see "Held mail") says that it waited, when it w
 and for how long:
 
 ```
-[comms] from core-lead · msg <id> · [held] sent Oct 10 23:41, waited 9h · [reply-once]
+[comms] from captain · msg <id> · [held] sent Oct 10 23:41, waited 9h · [reply-once]
 ```
 
 `sent` is the time alone on the day it was sent; the wait is minutes under an hour,
@@ -241,17 +243,19 @@ is in [adapters.md](adapters.md).
    in a completed turn. "Handled" means exactly that, and nothing stronger is claimed.
 2. **Delivery waits for a turn boundary.** A Claude session's shim queues mail and
    injects one digest when a turn ends or the session is idle, then advances the cursor
-   when the turn that read it completes. Mail released from the queue never goes into
+   when the turn that read it completes. A session sitting at its prompt never ends a
+   turn, so an idle session (no turn running, the queue unchanged for `IDLE_SETTLE`)
+   counts as standing at a boundary. Mail released from the queue never goes into
    a running turn. At every turn end the adapter writes its cursor first and then sends
    `activity kind=turn` with `handled` and `unhandled` (see "The daemon socket"). Queued
    mail goes out of id order, so the cursor never passes an id the adapter still holds
    and has not seen in a completed turn: it advances to the lower of the highest
    completed digest and one below the lowest id still held.
 3. **Catch-up on bind.** When a name binds, the daemon replays from the record what its
-   cursor hasn't passed. With a cursor, that is everything after it. With no cursor at
-   all (a new name, or one whose STATE was lost), replay is bounded to the newest
-   `REPLAY_N` (50) messages no older than `REPLAY_T` (24 hours), and the digest says that
-   older mail was omitted.
+   cursor hasn't passed. With a cursor, that is everything after it, however old. Only
+   with no cursor at all (a new name, or one whose STATE was lost) is replay bounded, to
+   the newest `REPLAY_N` (50) messages no older than `REPLAY_T` (24 hours), and the
+   digest says that older mail was omitted.
 4. **Waiting mail is listed by name.** `moxi comms agents --seats` lists, for each name, the
    mail waiting for it in the queue: how many messages, and how long the oldest has
    waited.
@@ -276,7 +280,7 @@ adapter it was handed to reports the turn that read it completed, so held mail s
 restarts, and the record keeps a waiting message past `retain_days` whatever its age.
 No sender, lane, flag or adapter is exempt from the cache rule: a message that wakes an
 agent on an expired cache writes all of its context to cache again at full price, and
-the operator ruled on 2026-10-05 that no sender may cause that.
+no sender may cause that.
 
 A queued message goes out only at one of its name's release points, never because
 another message to the name went out. Each release hands every row the binding was not
@@ -447,8 +451,8 @@ sends an `activity` with no `kind`.
 A codex or opencode launcher's `register` and every `activity` carry `session_id` (the
 thread or session id), `cache_source` (the Codex sessions root of an app-server the
 launcher spawned, or the path `opencode db path` gives) and `turned`; `register` also
-carries `new_session`. Since 2026-10-08 (operator ruling: a Codex or OpenCode launch
-starts its own thread or session, as a Claude launch does) neither launcher reads its
+carries `new_session`. A Codex or OpenCode launch starts its own thread or session, as a
+Claude launch does: neither launcher reads its
 record, so every launch's `register` reports `new_session: true` and its `turned` is
 false until its own first turn ends; a `register` later in the same launch reports the
 held id with `new_session: false`, and no reconnect or restart inside the launch makes
@@ -506,8 +510,9 @@ hour, in memory); `waiting` lists the asked ids that wait in that identity's que
 nothing.
 
 The `attributed_message` query reads one message from the record with its author as the
-daemon attributes it. The notify service asks it for the message an agent registers,
-and takes the item's sender and text from the answer.
+daemon attributes it. A program an agent hands a message to by its id, as when the agent
+registers an item with it, asks for that message here and takes the item's sender and
+text from the answer.
 
 ```
 ->  {"id": 4, "op": "query", "kind": "attributed_message",
@@ -595,28 +600,3 @@ clear the path.
 The roots are in [configuration.md](configuration.md). Retention trims message bodies
 older than `[local] retain_days` (90) at start and once a day; nothing the daemon
 derives looks back further than 24 hours.
-
-## Where the code differs from the original contracts
-
-comms was built against two written contracts, a message contract and a delivery-adapter
-contract, which aren't published. The code has moved past them in these places, and
-this page describes the code:
-
-- **The record is local.** The contracts take a hosted chat platform as the record.
-  The supported backend is a SQLite file on the machine, with the same rooms, the same
-  webhook-shaped credentials and the same machine line, so the rest of the protocol is
-  unchanged.
-- **A bare name is the global identity.** The contracts search a bare name in your own
-  scope first and defer it to your own scope. The code reads a bare name as the global
-  identity from every scope, as described under "Identities"; the custody journal only
-  says whether a never-bound name needs `--new-name`.
-- **An idle session is a turn boundary.** The contracts name the end of a turn as the
-  boundary. A Claude session sitting at its prompt never ends a turn, so the shim treats
-  an idle session (no turn running, the queue unchanged for `IDLE_SETTLE`) as standing at
-  a boundary and injects then.
-- **Replay is bounded only without a cursor.** A name with a cursor gets everything it is
-  owed at the bind, however old; the 50-message and 24-hour bounds apply only when no
-  cursor exists.
-- **`moxi comms explain`, `moxi comms cache`, `moxi comms owner` and `moxi comms doctor` are read-only
-  verbs** beyond the contracts' `help` and `whois`. They reach the daemon or local files
-  and post nothing.

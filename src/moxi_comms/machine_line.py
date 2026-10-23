@@ -11,12 +11,12 @@ Grammar:
          [1 reply left | last reply] [speaker]
          [no reply | reply-optional | reply-once | open]
 
-  ``[operator-words]``, ``[via-phone]`` and ``[speaker]`` are read and ignored, from
-  records written before 2026-10.
+  ``[operator-words]``, ``[via-phone]`` and ``[speaker]`` are marks an older comms
+  wrote; read and ignored.
 
   * the sigil is the two characters ``::`` immediately followed by ``to`` -- chosen
     because no markdown construct starts a line with it, a quoted sentence
-    never begins with it, and an operator can type it on a phone keyboard.
+    never begins with it, and it is quick to type by hand.
   * a <tag> is ``name`` or ``name@scope``; charset ``[A-Za-z0-9._-]``.
   * every token after the tags is optional, appears at most once, and sits in the
     order above. Out of order or doubled, the whole line is prose. Each bracketed
@@ -122,13 +122,13 @@ _LINE_RE = re.compile(
     rf"^[ \t]*::to[ \t]+(?P<tags>{_TAG}(?:[ \t]*,[ \t]*{_TAG})*)"
     r"(?:[ \t]+re:(?P<reply_to>[0-9]+))?"
     rf"(?:[ \t]+\[audience:(?P<audience>{_TAG})\])?"
-    r"(?:[ \t]+\[operator-words\])?"   # old records: read and ignored
-    r"(?:[ \t]+\[via-phone\])?"        # old records: read and ignored
+    r"(?:[ \t]+\[operator-words\])?"   # a mark an older comms wrote; read and ignored
+    r"(?:[ \t]+\[via-phone\])?"        # a mark an older comms wrote; read and ignored
     r"(?:[ \t]+(?P<held>\[(?:held|next-turn)\]))?"
     r"(?:[ \t]+\[cold-at:(?P<cold_at>(?:[0-9]+|-)(?:,(?:[0-9]+|-))*)\])?"
     r"(?:[ \t]+\[(?:cap:(?P<cap>[1-9][0-9]*)|(?P<no_cap>no-cap))\])?"
     r"(?:[ \t]+\[(?P<thread_mark>1 reply left|last reply)\])?"
-    r"(?:[ \t]+\[speaker\])?"          # old records: read and ignored
+    r"(?:[ \t]+\[speaker\])?"          # a mark an older comms wrote; read and ignored
     r"(?:[ \t]+\[(?P<posture>no reply|reply-optional|reply-once|open)\])?[ \t]*$",
     re.IGNORECASE,
 )

@@ -451,7 +451,7 @@ def test_a_stranger_installs_and_two_agents_talk(installed):
                  + read(home / "opencode-bob.sent"))
         assert "a stamp alone" not in read(home / "opencode-bob.log")
         # Each sent as its own identity: the frame names the sender, not just the body
-        # its turn typed (s157.1).
+        # its turn typed.
         assert "[comms] directive from operator" in read(home / "opencode-alice.log")
         assert "[comms] from alice · msg" in read(home / "opencode-bob.log")
         assert "[comms] from bob · msg" in read(home / "opencode-alice.log")

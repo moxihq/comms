@@ -86,15 +86,15 @@ def test_self_is_excluded_global(rig, tmp_path):
     """Global identities render bare in the roster; the self filter must match
     the bare qualified form, not `name@global`."""
     state = seed(tmp_path / "roster.json", {})
-    rig.shim(slot=1, name="steward", global_=True)
+    rig.shim(slot=1, name="herald", global_=True)
     envelope, online = shim_roster.delta(
-        daemon_socket(), state, env={"MOXI_COMMS_NAME": "steward", "MOXI_COMMS_GLOBAL": "1",
+        daemon_socket(), state, env={"MOXI_COMMS_NAME": "herald", "MOXI_COMMS_GLOBAL": "1",
                                      "MOXI_COMMS_SCOPE": "global"})
     assert online and envelope is None
     # ...and self leaving its own memory is filtered from the leave side too
-    state2 = seed(tmp_path / "r2.json", {"steward": "standing", "other@p": "chosen"})
+    state2 = seed(tmp_path / "r2.json", {"herald": "standing", "other@p": "chosen"})
     envelope, _ = shim_roster.delta(
-        daemon_socket(), state2, env={"MOXI_COMMS_NAME": "steward", "MOXI_COMMS_GLOBAL": "1"})
+        daemon_socket(), state2, env={"MOXI_COMMS_NAME": "herald", "MOXI_COMMS_GLOBAL": "1"})
     assert envelope == ("(comms roster update: other@p left — `moxi comms agents` is "
                         "always current.)")
 

@@ -1,39 +1,30 @@
-"""Cold sends v0.6 ([B1] comms@cold-every-sender): THE RULE, from every sender.
+"""Cold sends: the rule, from every sender.
 
 No agent may send another agent a message live while the recipient's cache is expired,
 and every sender counts as an agent. A message reaches a bound agent live only when comms has read its cache as warm, or as
-fresh on positive evidence. Everything else is held (a claude-shim, for its own next
-turn) or refused (an adapter that takes no delayed mail), whoever sent it and by
-whatever path. v0.6 refused `--cold` from every sender.
+fresh on positive evidence. Everything else is held or refused, whoever sent it and by
+whatever path.
 
-cold-hold ([B1], 2026-10-10) changed what the verb does with a held claude-shim
-recipient: it posts the message, exit 0, and the daemon's gate holds it for that
-session's own next turn, and accepted and ignored `--cold` with a NOTE. comms/refine
-§6.4 removed the flag: it is argparse's exit 2 from every sender now. A recipient the
-daemon will not hold (a codex or an opencode agent, no verdict, a failed query) still refuses the post, exit 6, nothing posted, "Nothing was sent." first and
-last. The tests below assert that where v0.6 asserted exit 6 for a claude-shim.
+A cold recipient of every adapter is posted and held, a row in the one queue, never
+refused; a read comms cannot make (unknown, a name that unbound mid-check, a failed
+`session` query) refuses the post at the send, exit 6, nothing posted, "Nothing was
+sent." first and last; an adapter with no clock reads `no-cache` and goes live. `--cold`
+is no flag: argparse's exit 2 from every sender. Past the verb, the daemon's `unknown`
+read is decided by the send's `[cold-at:…]` on line zero: `-` or a time still ahead
+delivers, a time reached or no token at all makes a row. A row goes out only at a
+release point: a `turn` carrying `handled` on a passing read, a `ready` with a source, a
+register (unflagged rows) on a passing read. Never with another message: no piggyback.
+There is no gate file, no `cold_refusals` and no `never_held`.
 
-comms/refine §3 (the one queue) changed THE RULE's second half again. A cold recipient
-of every adapter is posted and held, a row in the one queue, never refused ([F5]); a
-read comms cannot make (unknown, a name that unbound mid-check, a failed `session`
-query) refuses the post at the send, exit 6, nothing posted ([F7]); an adapter with no
-clock reads `no-cache` and goes live ([F6]). Past the verb, the daemon's `unknown` read
-is decided by the send's `[cold-at:…]` on line zero: `-` or a time still ahead
-delivers, a time reached or no token at all makes a row ([C12], [R8], [R72]). A row goes
-out only at a release point (§3.5): a `turn` carrying `handled` on a passing read, a
-`ready` with a source, a register (unflagged rows) on a passing read. Never with another
-message ([F3]: no piggyback). The gate file, `cold_refusals` and `never_held` are gone.
+Sections: (a) `clock_state`, (b) the verb with no exemption, (c) `--cold`, (d) the
+daemon's gate, past the verb, (e) the race, (f) a turn's read and a session id two
+bindings report, (g) `never_held` retired, (h) `moxi comms cache`, (i) the wrong root
+holds, (j) the shim's evidence, and (k) `turned` across a respawn.
 
-Sections follow design v0.6 §11.2: (a) `clock_state`, (b) the verb with no exemption,
-(c) `--cold`, (d) the daemon's gate, past the verb, (e) the race, (f) [R16] and [R17],
-(g) `never_held` retired, (h) `moxi comms cache`, (i) the wrong root holds, (j) the shim's
-evidence, and (k) the five items of the v0.6 re-check the build took.
-
-Every rig test runs on both backends (BOTH_BACKENDS), never Discord (RULE 8). The cache
+Every rig test runs on both backends (BOTH_BACKENDS), never Discord. The cache
 clock reads fixture transcripts under the rig's tmp projects root (`CLAUDE_CONFIG_DIR`, set by
-`conftest.env`). The `only_tmp_paths` guard, carried
-from the cold-lock branch, fails a test whose comms paths leave tmp. Nothing here calls
-`monkeypatch.undo()`.
+`conftest.env`). The `only_tmp_paths` guard fails a test whose comms paths leave tmp.
+Nothing here calls `monkeypatch.undo()`.
 """
 
 from __future__ import annotations
@@ -61,7 +52,7 @@ from moxi_comms.protocol import CLI_PROTOCOL, LineConn
 from moxi_comms.provision import NAMES
 from moxi_comms.sender import SenderIdentity
 
-# Fixtures shared with the v0.4 suite. Imported, so pytest finds them here too.
+# Fixtures shared with test_cold_sends.py. Imported, so pytest finds them here too.
 from test_cold_sends import bind, reboot  # noqa: F401
 
 import shim_drive
@@ -89,7 +80,7 @@ LANE_IDS = ["agent", "operator", "console"]
 
 
 def held_last(q=REVIEWER_Q):
-    """A held send's last line for one chosen name (comms/refine §3.8.2)."""
+    """A held send's last line for one chosen name."""
     return (f"Sent and held: {q} reads this after its own next turn, or when its session "
             "is cleared, compacted or restarted. Nothing wakes it for this message alone.")
 
@@ -115,7 +106,7 @@ def _live_paths():
 def assert_all_under(paths, roots, when):
     """Fails unless every path in `paths` (a name -> path mapping) resolves under one of
     `roots`. The guard's check, kept apart from the fixture so a test can drive it
-    (build-cleanup design §2.1: a test-temp guard accepts the run's own pytest base temp
+    (a test-temp guard accepts the run's own pytest base temp
     or `tempfile.gettempdir()`, and nothing else)."""
     roots = [Path(root).resolve() for root in roots]
     for what, path in paths.items():
@@ -130,11 +121,10 @@ def assert_all_under(paths, roots, when):
 def only_tmp_paths(tmp_path_factory):
     """Fails the test if any path comms resolves -- the socket, STATE, the record, the
     gate file, the transcripts the clock reads -- is not test temp, before the test and
-    again after it (cold-lock's guard: a mid-test `monkeypatch.undo()` once put the live
-    paths back and bound a name on the live daemon). Test temp is the run's own pytest
+    again after it (a mid-test `monkeypatch.undo()` puts the live paths back, and a
+    name could then bind on a live daemon). Test temp is the run's own pytest
     base temp, which `PYTEST_DEBUG_TEMPROOT` may put outside /tmp, or
-    `tempfile.gettempdir()`, where the suites' short socket dirs stay (build-cleanup
-    design §2.1)."""
+    `tempfile.gettempdir()`, where the suites' short socket dirs stay."""
     roots = (tmp_path_factory.getbasetemp(), tempfile.gettempdir())
     assert_all_under(_live_paths(), roots, "before the test")
     yield
@@ -167,7 +157,7 @@ def posted(rig):
 
 def held_of(rig, q=REVIEWER_Q):
     """The ids waiting in `q`'s queue: one queue holds offline, cold and flagged mail
-    alike (design §3.2)."""
+    alike."""
     with rig.daemon._lock:
         return set(rig.daemon.queue.get(q, {}))
 
@@ -185,8 +175,8 @@ def nudge(rig):
 def post(rig, recipients, text="past the verb", *, next_turn=False, slot=6,
          display="planner@proj-a", cold_at=None):
     """A post straight to the record through a slot's webhook, past the verb, then a
-    nudge: what a process that skips `comms send` does (§6.8 P13). Line zero carries no
-    `[cold-at:…]` token unless `cold_at` gives its values (comms/refine §3.8.6)."""
+    nudge: what a process that skips `comms send` does. Line zero carries no
+    `[cold-at:…]` token unless `cold_at` gives its values."""
     from moxi_comms import directory
     from moxi_comms.mock_gateway import NO_MENTIONS
     from moxi_comms.sender import SenderIdentity, credential_for
@@ -206,14 +196,14 @@ def post(rig, recipients, text="past the verb", *, next_turn=False, slot=6,
 
 def raw_activity(pushes, q, **fields):
     """An `activity` frame on a bare binding's own connection (a bare claude-shim, a codex or an
-    opencode agent bound by `adapters`): the release points of comms/refine §3.5 ride
+    opencode agent bound by `adapters`): the release points ride
     these frames, whichever adapter code sends them."""
     pushes.client.notify("activity", identity=q, **fields)
 
 
 def raw_turn(pushes, q, handled=(), unhandled=()):
-    """`activity kind=turn` with `handled` and `unhandled`, as this round's adapters send
-    it at every turn end (§3.3.3, §3.4)."""
+    """`activity kind=turn` with `handled` and `unhandled`, as the adapters send
+    it at every turn end."""
     raw_activity(pushes, q, kind="turn", turned=True, handled=[str(i) for i in handled],
                  unhandled=[str(i) for i in unhandled])
 
@@ -287,13 +277,13 @@ def shim(rig, sid=SESS_A, *, age="none", **kw):
 
 # ============================================================ (a) clock_state
 # The transcript reader itself is the cache module's, and its pure reads are tested in
-# its suite (design §6.9). What stays is comms' seam: what reads without the module, and
+# its suite. What stays is comms' seam: what reads without the module, and
 # that a read never raises.
 
-@pytest.mark.parametrize("adapter", ["something-new", None, "driver", "speech",
+@pytest.mark.parametrize("adapter", ["something-new", None, "harness-kind", "person-kind",
                                      "send-only"])
 def test_an_adapter_with_no_clock_reads_no_cache(adapter):
-    """No clock, live ([F6], comms/refine §3.6): an adapter comms has no clock for reads
+    """No clock, live: an adapter comms has no clock for reads
     `no-cache`, a passing read, with the reason naming the adapter; never `unknown`, so
     its mail is never refused nor queued for lack of a clock. (codex and opencode have a
     clock of their own, `test_cache_clock.py`; a module's kind, `test_cache_seam.py`.)"""
@@ -364,10 +354,10 @@ def _hold_state(rig, adapters, state, tmp_path=None):
     raise AssertionError(state)
 
 
-#: A cold read, on every adapter: posted and held, a row ([F5], comms/refine §3.8.2).
+#: A cold read, on every adapter: posted and held, a row.
 HELD_STATES = ["cold", "bare cold", "codex cold", "opencode cold"]
-#: A read comms cannot make, on every adapter: refused, exit 6, nothing posted ([F7],
-#: §3.8.3). A codex or opencode binding that reported no session reads unknown.
+#: A read comms cannot make, on every adapter: refused, exit 6, nothing posted.
+#: A codex or opencode binding that reported no session reads unknown.
 REFUSED_STATES = ["no session id", "unreadable", "no evidence", "codex", "opencode"]
 
 
@@ -382,9 +372,9 @@ def _bind_lane(bind, who):
 @pytest.mark.parametrize("who", LANES, ids=LANE_IDS)
 def test_every_sender_is_held_or_refused_in_every_state_that_does_not_pass(
         rig, adapters, bind, tmp_path, who, state):
-    """[C14], [C15]: the operator's lane and the console are checked like any agent, for every state that is not warm, fresh or no-cache. A cold recipient of any
-    adapter is posted and held, exit 0, a row and no delivery ([F5]); a read comms cannot
-    make refuses the post, exit 6, nothing posted, whatever the adapter ([F7])."""
+    """The operator's lane and the console are checked like any agent, for every state that is not warm, fresh or no-cache. A cold recipient of any
+    adapter is posted and held, exit 0, a row and no delivery; a read comms cannot
+    make refuses the post, exit 6, nothing posted, whatever the adapter."""
     if who is AS_OPERATOR and state in HELD_STATES and rig.backend != "local":
         pytest.skip("a held post on the operator's lane needs local's operator credential")
     if state in HELD_STATES:
@@ -437,7 +427,7 @@ def test_a_small_cold_context_is_held(rig):
 
 
 def test_a_failed_session_query_refuses_the_post(rig, monkeypatch):
-    """A `session` query that fails refuses the post, exit 6 ([F7], §3.8.3)."""
+    """A `session` query that fails refuses the post, exit 6."""
     shim(rig, SESS_A, age=60)
     real = DaemonClient.query
 
@@ -458,10 +448,9 @@ def test_a_failed_session_query_refuses_the_post(rig, monkeypatch):
 
 @pytest.mark.parametrize("older", ["no session query", "no verdict"])
 def test_a_session_answer_with_no_verdict_refuses_the_post(rig, monkeypatch, older):
-    """The old-daemon reason is gone with the version check (comms/refine §3.10, items 4
-    and 5): a `session` query refused as an unknown kind is a failed query, and an
+    """There is no old-daemon reason and no version check: a `session` query refused as an unknown kind is a failed query, and an
     answer with no verdict reads `unknown`. Each refuses the post, exit 6, as a read
-    comms could not make (§3.8.3)."""
+    comms could not make."""
     from moxi_comms.daemon import Refusal
     shim(rig, SESS_A, age=60)
     real = rig.daemon._session_query
@@ -489,8 +478,8 @@ def test_a_session_answer_with_no_verdict_refuses_the_post(rig, monkeypatch, old
 
 
 def test_an_unbound_recipient_waits_and_is_told_what_releases_it(rig):
-    """Not bound: posted, a row, and the NOTE says §3.5's releases for a name that is
-    not bound (comms/refine §3.8.2)."""
+    """Not bound: posted, a row, and the NOTE says what releases mail for a name
+    that is not bound."""
     code, out = send(rig, "nobody-yet", "hello", "--new-name")
     assert code == 0 and len(posted(rig)) == 1
     (msg,) = posted(rig)
@@ -500,7 +489,7 @@ def test_an_unbound_recipient_waits_and_is_told_what_releases_it(rig):
 
 
 def test_held_reads_the_cache_and_a_cold_recipient_waits_as_flagged(rig):
-    """`--held` reads the recipient's cache like any send (§3.8.1): a cold read posts
+    """`--held` reads the recipient's cache like any send: a cold read posts
     and the message waits as flagged, with the `--held` NOTE and no `held:` line (the
     flag, not the read, makes the row), so no usage run."""
     s = shim(rig, SESS_A, age=9 * HOUR)
@@ -515,7 +504,7 @@ def test_held_reads_the_cache_and_a_cold_recipient_waits_as_flagged(rig):
 
 
 def test_held_to_a_recipient_comms_cannot_read_is_refused(rig):
-    """[F7]: an unknown read refuses a flagged send too; it is not held."""
+    """An unknown read refuses a flagged send too; it is not held."""
     rig.shim(**REVIEWER, session_id=None)
     code, out = send(rig, REVIEWER_Q, "later", "--held")
     assert code == cli.EXIT_COLD and posted(rig) == [], out
@@ -549,7 +538,7 @@ def test_the_hold_text_on_the_operators_lane(rig):
 
 
 def test_the_refusal_text_for_an_unreadable_codex_recipient(rig, adapters):
-    """comms/refine §3.8.3: a codex agent comms cannot read refuses the whole post, the
+    """A codex agent comms cannot read refuses the whole post, the
     cold reviewer beside it included; "Nothing was sent." first and last, the way to
     reach the others, the retry, and no `held:` line and no re-run line."""
     shim(rig, SESS_A, age=2 * HOUR)
@@ -567,8 +556,8 @@ def test_the_refusal_text_for_an_unreadable_codex_recipient(rig, adapters):
 
 
 def test_a_caller_past_the_verb_is_still_held(rig):
-    """In-process, as voice calls the verb (from inside a session holding the sender,
-    through its claim socket): `_send` is held -- posted, exit 0, and kept by the daemon
+    """In-process, as a caller inside a session calls the verb (holding the
+    sender, through its claim socket): `_send` is held -- posted, exit 0, and kept by the daemon
     for the recipient's own next turn."""
     shim(rig, SESS_A, age=2 * HOUR)
     args = SimpleNamespace(to=REVIEWER_Q, text="round the verb",
@@ -597,7 +586,7 @@ def _lane_posts(rig, who):
 
 @pytest.mark.parametrize("who", LANES, ids=LANE_IDS)
 def test_send_cold_is_argparses_error_from_every_sender(rig, bind, who):
-    """comms/refine §6.4: `--cold` is gone, so from every sender it is argparse's
+    """`--cold` is no flag, so from every sender it is argparse's
     "unrecognized arguments", exit 2, and nothing is posted."""
     _lane_posts(rig, who)
     _bind_lane(bind, who)
@@ -629,7 +618,7 @@ def test_help_does_not_teach_cold(verb, capsys):
 
 
 def test_the_cure_never_carries_cold():
-    """It carries `--held` (every recipient takes it, comms/refine §3.8.1), never
+    """It carries `--held` (every recipient takes it), never
     `--cold`."""
     args = SimpleNamespace(cold=True, held=True, standing=False, posture=None)
     assert cli._cure_flags(args) == " --held"
@@ -638,9 +627,9 @@ def test_the_cure_never_carries_cold():
 # ========================================================== (d) the daemon's gate
 
 def test_a_cold_shim_recipient_is_held_then_released_by_its_own_warm_turn(rig):
-    """Cold-held (comms/refine §3.5): a row. A turn that ends on a cold read releases
+    """Cold-held: a row. A turn that ends on a cold read releases
     nothing; the turn that warms the cache does, `held: true`. The row stays until a
-    `turn` names the id handled ([R2])."""
+    `turn` names the id handled."""
     s = shim(rig, SESS_A, age=2 * HOUR)
     msg = post(rig, [REVIEWER_Q])
     wait_until(lambda: msg.id in held_of(rig))
@@ -660,7 +649,7 @@ def test_a_cold_shim_recipient_is_held_then_released_by_its_own_warm_turn(rig):
 
 
 def test_cold_held_mail_waits_while_newer_mail_goes_once_warm(rig):
-    """No piggyback ([F3]): once the cache is warm again, a newer message goes alone;
+    """No piggyback: once the cache is warm again, a newer message goes alone;
     the cold-held row waits for the name's next release point, its own turn."""
     s = shim(rig, SESS_A, age=2 * HOUR)
     first = post(rig, [REVIEWER_Q], "first")
@@ -675,8 +664,8 @@ def test_cold_held_mail_waits_while_newer_mail_goes_once_warm(rig):
 
 
 def test_a_cold_bare_binding_is_held_and_released_by_its_own_warm_turn(rig, adapters):
-    """[F8]: a bare binding is no branch. Cold, its mail is a row, never refused. A
-    newer message on a warm read goes alone ([F3]), a rescan hands nothing more, and the
+    """A bare binding is no branch. Cold, its mail is a row, never refused. A
+    newer message on a warm read goes alone, a rescan hands nothing more, and the
     binding's next turn on the warm read releases the row."""
     helper = bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
     msg = post(rig, [HELPER_Q])
@@ -712,8 +701,8 @@ def cold_harness_report(kind, tmp_path) -> dict:
 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
 def test_a_codex_or_opencode_recipient_is_held(rig, adapters, kind, tmp_path):
-    """[F5]: a cold codex or opencode agent is held like any, a row, not refused. Its
-    compaction (`ready source=compact`) releases the row with no read (§3.5)."""
+    """A cold codex or opencode agent is held like any, a row, not refused. Its
+    compaction (`ready source=compact`) releases the row with no read."""
     coder = adapters(slot=5, name="coder", scope="proj-a", adapter=kind,
                      report=cold_harness_report(kind, tmp_path))
     assert rig.daemon._read(rig.daemon.bindings[CODER_Q]).kind == "cold"
@@ -728,7 +717,7 @@ def test_a_codex_or_opencode_recipient_is_held(rig, adapters, kind, tmp_path):
 
 def test_a_model_with_no_lifetime_row_reads_no_cache_and_goes_live(rig, adapters,
                                                                     tmp_path):
-    """No lifetime row, live ([I3], [C4], §3.6): an opencode model comms knows no
+    """No lifetime row, live: an opencode model comms knows no
     lifetime for reads `no-cache`, with the reason saying so, and its mail is delivered
     live, never queued for the missing row."""
     from test_cache_clock import BUILD_NULL, SID, real_oc
@@ -744,8 +733,8 @@ def test_a_model_with_no_lifetime_row_reads_no_cache_and_goes_live(rig, adapters
 
 
 def test_deferred_mail_at_a_bind_into_a_cold_resumed_session_is_held(rig):
-    """Offline mail is a row (§3.3.2); a register into a cold resumed session releases
-    nothing ([F10]), and the first turn on a warm read does."""
+    """Offline mail is a row; a register into a cold resumed session releases
+    nothing, and the first turn on a warm read does."""
     msg = post(rig, [REVIEWER_Q], "while you were away")
     assert wait_until(lambda: msg.id in held_of(rig))
     s = shim(rig, SESS_A, age=5 * HOUR)        # `--resume`: the old transcript, cold
@@ -759,10 +748,10 @@ def test_deferred_mail_at_a_bind_into_a_cold_resumed_session_is_held(rig):
 
 
 @pytest.mark.parametrize("kind", ["codex", "opencode"])
-def test_m7_held_mail_at_a_codex_bind_waits_for_a_real_boundary(rig, adapters, kind,
-                                                                tmp_path):
-    """Every adapter takes held mail ([F5]): a flagged row waits through a codex or
-    opencode register ([R7]), never refused, and goes at its session start."""
+def test_held_mail_at_a_codex_bind_waits_for_a_real_boundary(rig, adapters, kind,
+                                                             tmp_path):
+    """Every adapter takes held mail: a flagged row waits through a codex or
+    opencode register, never refused, and goes at its session start."""
     held = post(rig, [CODER_Q], "later", next_turn=True)
     assert wait_until(lambda: held.id in held_of(rig, CODER_Q))
     coder = adapters(slot=5, name="coder", scope="proj-a", adapter=kind,
@@ -776,10 +765,10 @@ def test_m7_held_mail_at_a_codex_bind_waits_for_a_real_boundary(rig, adapters, k
 
 @pytest.mark.parametrize("anchor,released", [("", True), ("cold", False)],
                          ids=["fresh", "cold"])
-def test_m7_held_mail_at_a_bare_binding_bind(rig, adapters, anchor, released):
-    """A flagged row waits through a bare binding's register on any read ([R7]); its
+def test_held_mail_at_a_bare_binding_bind(rig, adapters, anchor, released):
+    """A flagged row waits through a bare binding's register on any read; its
     next turn releases it on a passing read (a transcript with no request reads fresh)
-    and not on a cold one ([F8])."""
+    and not on a cold one."""
     held = post(rig, [HELPER_Q], "later", next_turn=True)
     assert wait_until(lambda: held.id in held_of(rig, HELPER_Q))
     helper = bare_shim(adapters, sid="" if anchor == "" else SESS_D,
@@ -818,7 +807,7 @@ def test_replays_cursor_never_passes_a_cold_held_id(rig):
 
 
 def test_a_cold_row_survives_a_restart_and_a_shim_that_registers_at_once(rig, reboot):
-    """The row is in the record (§3.3.1), not a gate file: the restarted daemon loads it
+    """The row is in the record, not a gate file: the restarted daemon loads it
     before the socket listens, and the cold shim's reconnect hands nothing."""
     s = shim(rig, SESS_A, age=2 * HOUR, autoreconnect=True,
              backoff=iter(lambda: 0.02, None))
@@ -835,7 +824,7 @@ def test_a_cold_row_survives_a_restart_and_a_shim_that_registers_at_once(rig, re
 
 
 def test_row_ids_are_skipped_by_the_rescan(rig, adapters):
-    """[R61]: only a release point hands a row id; a rescan on a warm read skips it."""
+    """Only a release point hands a row id; a rescan on a warm read skips it."""
     helper = bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
     msg = post(rig, [HELPER_Q])
     assert wait_until(lambda: msg.id in held_of(rig, HELPER_Q))
@@ -849,8 +838,8 @@ def test_row_ids_are_skipped_by_the_rescan(rig, adapters):
 @pytest.mark.parametrize("anchor", [SESS_D, ""], ids=["warm", "blank"])
 def test_a_cold_bare_bindings_row_survives_its_unbind_and_a_restart_and_goes_at_the_next_bind(
         rig, adapters, reboot, anchor):
-    """[R2]: a row is never deleted at unbind nor by a restart. The next binding's
-    register releases it (an unflagged row, on a passing read, [R7]), `held: true`,
+    """A row is never deleted at unbind nor by a restart. The next binding's
+    register releases it (an unflagged row, on a passing read), `held: true`,
     whether the session now reads warm or has made no request."""
     helper = bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
     msg = post(rig, [HELPER_Q])
@@ -868,8 +857,7 @@ def test_a_cold_bare_bindings_row_survives_its_unbind_and_a_restart_and_goes_at_
 
 def test_the_daemon_refuses_to_start_when_the_queue_load_raises(rig, monkeypatch):
     """A daemon without its rows would hand nothing at any release point and write rows
-    over an empty memory: a queue read that raises stops the start (the queue slice's
-    departure 7)."""
+    over an empty memory: a queue read that raises stops the start."""
     rig.daemon.stop()
 
     def broken():
@@ -884,7 +872,7 @@ def test_the_daemon_refuses_to_start_when_the_queue_load_raises(rig, monkeypatch
 
 def test_the_trim_keeps_a_cold_bare_bindings_row_and_takes_the_message_once_handled(
         rig, adapters):
-    """[R9]: a row keeps its message past retention; once the adapter names it handled
+    """A row keeps its message past retention; once the adapter names it handled
     the row goes, and the trim takes the message like any other."""
     if rig.backend != "local":
         pytest.skip("only the local record trims")
@@ -904,8 +892,8 @@ def test_the_trim_keeps_a_cold_bare_bindings_row_and_takes_the_message_once_hand
     assert rig.gateway.get_message(msg.id) is None
 
 
-def test_hazard_1_a_cursor_past_a_cold_held_id_leaves_its_row(rig):
-    """[R2]: a row is never deleted by comparing its id with the cursor; a rescan keeps
+def test_a_cursor_past_a_cold_held_id_leaves_its_row(rig):
+    """A row is never deleted by comparing its id with the cursor; a rescan keeps
     it, in memory and in the record."""
     shim(rig, SESS_A, age=2 * HOUR)
     msg = post(rig, [REVIEWER_Q])
@@ -918,8 +906,8 @@ def test_hazard_1_a_cursor_past_a_cold_held_id_leaves_its_row(rig):
 
 def test_a_delivered_message_re_read_after_the_recipient_went_cold_writes_no_row(
         rig, adapters):
-    """Re-check v0.6 finding 7 (b): a rescan re-reading ordinary mail a binding was
-    already handed is no delivery: no row ([R61])."""
+    """A rescan re-reading ordinary mail a binding was
+    already handed is no delivery: no row."""
     helper = bare_shim(adapters, sid=SESS_D, age=60)
     msg = post(rig, [HELPER_Q])
     wait_until(lambda: helper.ids() == [msg.id])
@@ -932,11 +920,11 @@ def test_a_delivered_message_re_read_after_the_recipient_went_cold_writes_no_row
 
 
 @pytest.mark.parametrize("who", ["shim", "bare"])
-def test_hazard_2_a_gate_that_raises_reads_unknown_and_the_sends_cold_at_decides(
+def test_a_gate_that_raises_reads_unknown_and_the_sends_cold_at_decides(
         rig, adapters, monkeypatch, who):
-    """A read that raises is `unknown` ([R8]); the message is posted and never dropped.
-    The send's cold-at decides it ([C12]): `-` or a time still ahead of the daemon's
-    clock delivers; a time reached, or no `[cold-at:…]` token at all ([R72]), makes a
+    """A read that raises is `unknown`; the message is posted and never dropped.
+    The send's cold-at decides it: `-` or a time still ahead of the daemon's
+    clock delivers; a time reached, or no `[cold-at:…]` token at all, makes a
     row and no delivery."""
     def broken(*a, **kw):
         raise RuntimeError("the clock fell over")
@@ -973,7 +961,7 @@ def test_the_trim_keeps_cold_held_ids(rig):
 
 
 def test_comms_explain_names_a_cold_shims_and_a_cold_bare_bindings_mail_waiting(rig, adapters):
-    """One queue, one case (§3.11): cold-held mail is `waiting`, on every adapter."""
+    """One queue, one case: cold-held mail is `waiting`, on every adapter."""
     shim(rig, SESS_A, age=2 * HOUR)
     held = post(rig, [REVIEWER_Q])
     bare_shim(adapters, sid=SESS_D, age=3 * HOUR)
@@ -988,8 +976,7 @@ def test_comms_explain_names_a_cold_shims_and_a_cold_bare_bindings_mail_waiting(
 
 def test_comms_agents_counts_cold_held_mail(rig):
     """`agents` answers `waiting: {q: {count, oldest}}` from the queue, and `pending`
-    always empty ([R63], §3.11). How the roster renders `waiting` is §7.3's (the roster
-    slice)."""
+    always empty. How the roster renders `waiting` is tested with the roster."""
     shim(rig, SESS_A, age=2 * HOUR)
     post(rig, [REVIEWER_Q], "one")
     post(rig, [REVIEWER_Q], "two")
@@ -1009,7 +996,7 @@ def test_comms_agents_counts_cold_held_mail(rig):
 
 def test_checked_warm_and_cold_at_delivery_is_held(rig, monkeypatch):
     """The verb reads warm; the clock crosses the hour before the daemon routes the
-    post. The daemon's gate holds it, after the sender was told `sent` (§6.7, P17)."""
+    post. The daemon's gate holds it, after the sender was told `sent`."""
     s = shim(rig, SESS_A, age=60)
     real = sending.post
 
@@ -1026,12 +1013,12 @@ def test_checked_warm_and_cold_at_delivery_is_held(rig, monkeypatch):
     assert s.queue == []
 
 
-# ===================================================== (f) [R16] and [R17]
+# =========================================== (f) a turn's read, a shared session id
 
-def test_r16_a_turn_on_a_cold_recipient_releases_nothing(rig):
-    """A `turn` releases on a passing read only (§3.5): a forged turn end over a cold
+def test_a_turn_on_a_cold_recipient_releases_nothing(rig):
+    """A `turn` releases on a passing read only: a forged turn end over a cold
     transcript releases nothing; once a genuine turn wrote its fresh line, it does.
-    (The frames are sent raw: the Claude shim's `handled` is the shim slice's.)"""
+    (The frames are sent raw: the Claude shim's own `handled` is tested with the shim.)"""
     s = shim(rig, SESS_A, age=2 * HOUR)
     held = post(rig, [REVIEWER_Q], "later", next_turn=True)
     wait_until(lambda: held.id in held_of(rig))
@@ -1043,8 +1030,8 @@ def test_r16_a_turn_on_a_cold_recipient_releases_nothing(rig):
     assert queued_ids(wait_for_queue(s, 1)) == [held.id]
 
 
-def test_r16_a_fresh_read_passes_at_a_turn(rig):
-    """comms/refine §3.6 replaces [R16]'s "fresh is not warm": a release point's read
+def test_a_fresh_read_passes_at_a_turn(rig):
+    """A release point's read
     passes on `warm`, `fresh` and `no-cache` alike (`cache.PASSING`), so a `turn` over a
     transcript with no request yet releases the row."""
     s = shim(rig, SESS_A, age=None)            # a transcript with no request yet
@@ -1055,7 +1042,7 @@ def test_r16_a_fresh_read_passes_at_a_turn(rig):
     assert queued_ids(wait_for_queue(s, 1)) == [held.id]
 
 
-def test_r17_a_second_binding_reporting_a_held_session_id_is_refused(rig, caplog):
+def test_a_second_binding_reporting_a_held_session_id_is_refused(rig, caplog):
     first = shim(rig, SESS_A, age=60)
     with caplog.at_level("WARNING", logger="comms.daemon"):
         other = rig.shim(slot=4, name="main", scope="proj-a", session_id=SESS_A)
@@ -1083,7 +1070,7 @@ def _policy_table(body):
 
 
 def test_comms_doctor_prints_no_never_held_line(rig):
-    """[R62]: no doctor row for the `[policy]` table (comms/refine §3.8.5). A retired
+    """No doctor row for the `[policy]` table. A retired
     key, such as `never_held`, now fails the load (`test_cold_sends.py`)."""
     _policy_table('cache_callers = ["x@y"]\n')
     code, out = rig.cli(["doctor"])
@@ -1116,7 +1103,7 @@ def test_comms_cache_reads_a_raw_id_in_process(rig):
 # ====================================================== (i) the wrong root holds
 
 def _old_shim_register(session_id, **extra):
-    """A register as a shim built before v0.6 sends it: a session id, no root."""
+    """A register as an older shim sends it: a session id, no root."""
     pushes = Pushes()
     c = DaemonClient(daemon_socket(), on_push=pushes).connect()
     c.register(slot=2, name="reviewer", scope="proj-a", adapter="claude-shim",
@@ -1146,7 +1133,7 @@ def test_an_older_shims_binding_under_a_wrong_daemon_root_is_held(rig, monkeypat
         reboot(rig)                                       # and again after a restart
 
 
-def test_a_v06_shim_whose_reported_root_lacks_its_transcript_is_held_after_a_prompt(
+def test_a_shim_whose_reported_root_lacks_its_transcript_is_held_after_a_prompt(
         rig, tmp_path):
     write_transcript(SESS_A, 3 * HOUR, root=tmp_path / "real")   # where it really is
     s = rig.shim(**REVIEWER, session_id=SESS_A)                  # reports the rig root
@@ -1160,7 +1147,7 @@ def test_a_v06_shim_whose_reported_root_lacks_its_transcript_is_held_after_a_pro
 
 
 def test_a_prompt_alone_tells_the_daemon_and_releases_nothing(rig, monkeypatch):
-    """S2: a turn's start sends an `activity` with no `kind`, so the daemon's
+    """A turn's start sends an `activity` with no `kind`, so the daemon's
     `turned` is set at the prompt and held next-turn mail stays held until the turn
     ends."""
     s = shim(rig, SESS_B)                     # never prompted: fresh
@@ -1179,7 +1166,7 @@ def test_a_prompt_alone_tells_the_daemon_and_releases_nothing(rig, monkeypatch):
     assert held.id in held_of(rig) and s.queue == []
 
 
-def test_a_never_prompted_v06_shim_is_delivered_and_again_after_a_restart(rig, reboot):
+def test_a_never_prompted_shim_is_delivered_and_again_after_a_restart(rig, reboot):
     s = shim(rig, SESS_B, autoreconnect=True, backoff=iter(lambda: 0.02, None))
     first = post(rig, [REVIEWER_Q], "first task")
     wait_for_queue(s, 1)
@@ -1218,7 +1205,7 @@ def test_turned_is_false_at_spawn_and_set_by_a_prompt_and_a_turn_end(rig):
 
 
 def test_the_idle_tick_sets_no_turned_before_any_prompt(rig):
-    """Re-check finding 3: the idle tick injecting mail into a never-prompted session is
+    """The idle tick injecting mail into a never-prompted session is
     not a turn. Its notify carries no `kind`, so the daemon reads no `turned` from it."""
     s = shim(rig, SESS_B)                                   # never prompted, no file
     msg = post(rig, [REVIEWER_Q], "first task")
@@ -1245,7 +1232,7 @@ def test_a_clear_naming_a_new_id_lowers_turned(rig):
 
 @pytest.mark.parametrize("source", ["fork", "resume", "startup", None])
 def test_a_new_id_that_is_not_a_clear_keeps_turned_raised(rig, source):
-    """Re-check finding 4: a new id minted by a fork (or `/branch`) carries its parent's
+    """A new id minted by a fork (or `/branch`) carries its parent's
     context, so it must never read `fresh` before its first prompt. Only a `/clear`
     starts empty; any other new id sets `turned`."""
     s = shim(rig, SESS_A, age=60)
@@ -1302,10 +1289,10 @@ def test_a_frame_with_neither_field_leaves_projects_root_unset(rig):
     old.client.close()
 
 
-# ============================================== (k) the v0.6 re-check, finding 1
+# =================================================== (k) `turned` across a respawn
 
 def test_the_daemon_never_lowers_turned_for_a_session_it_has_seen_turn(rig):
-    """Re-check finding 1: a shim respawned in a session that has had turns starts
+    """A shim respawned in a session that has had turns starts
     `turned` false. The daemon keeps it raised for that id, so a transcript its root
     does not hold reads `unknown` (held), not `fresh`."""
     first = shim(rig, SESS_A)                         # never prompted, no file yet

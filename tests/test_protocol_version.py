@@ -2,7 +2,7 @@
 
 The daemon answers `register` with `protocol`, at 1. Nothing in comms reads it: the Claude
 shim no longer compares it with its own and says nothing about a mismatch, in its log or
-in a session (design §6.5.1, [F24]).
+in a session.
 """
 
 from __future__ import annotations

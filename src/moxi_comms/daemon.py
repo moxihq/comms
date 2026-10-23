@@ -16,7 +16,7 @@ Contract anchors:
     queued message goes out only at the name's next release point (a `ready` with a
     `source`, a `turn` carrying `handled`, or a register on a passing read), never
     because another message to the name went out. A turn end whose read does not pass
-    stays open for a settle window (RULE H1, `RELEASE_SETTLE_STEPS`), read again until
+    stays open for a settle window (`RELEASE_SETTLE_STEPS`), read again until
     a read passes or the window ends. A row is deleted only when the adapter names its
     id `handled` on a `turn` frame from the binding that was handed it; never by cursor
     and never at unbind. An `unhandled` id, an id handed and not past the cursor at
@@ -172,7 +172,7 @@ ACTIVITY_LOOK = "look"
 #: row without reading the cache. Any other source (`resume`, Claude Code's `fork`, a
 #: value this daemon does not know) reads the cache first.
 SOURCES_UNREAD = ("startup", "clear", "compact")
-#: RULE H1's settle window: the seconds after a `turn` frame at which the daemon reads
+#: The settle window: the seconds after a `turn` frame at which the daemon reads
 #: the binding's cache again when the frame's own read did not pass. The harness can
 #: write the turn's record after its end is reported (Claude Code drains its transcript
 #: writes on a 100 ms timer), so the read at the frame can judge the cache as it was
@@ -230,7 +230,7 @@ class SentEntry:
 
 @dataclass(eq=False)
 class SettleWindow:
-    """One open settle window (RULE H1): the binding whose `turn` frame read a cache
+    """One open settle window: the binding whose `turn` frame read a cache
     that did not pass, when the frame arrived (`time.monotonic`), the steps it reads
     at, the ids the frame reported `unhandled` (never handed by its release) and how
     many reads it has made. `closed` is set once, by its pass, its end or whatever
@@ -449,7 +449,7 @@ class Daemon:
         #: Per name, not global: a delivery blocks in `sendall`, and a shim that stops
         #: reading must stall only its own name.
         self._release_locks: dict[str, threading.RLock] = {}
-        #: RULE H1's open settle windows by qualified name: one binding holds a name, so
+        #: The open settle windows by qualified name: one binding holds a name, so
         #: one window per name. Changed under `_window_cond`, which the window worker
         #: waits on; `_lock` may be held when it is taken, never the other way round. A
         #: window lives in memory only: a restart loses it, and `[held]` rows then wait
@@ -1237,7 +1237,7 @@ class Daemon:
                     self.auto_windows[b.name][1] = self.clock()
                 self.injected_through.pop(b.qualified, None)
                 self.injected_digest.pop(b.qualified, None)
-                # Its settle window closes with it (RULE H1).
+                # Its settle window closes with it.
                 self._close_window(b)
                 # The unanswered record's third drop: the owing binding ended.
                 for key in [k for k in self.unanswered if k[0] == b.qualified]:
@@ -1399,9 +1399,9 @@ class Daemon:
         owner's list as `owed` computes it (`_awaiting`, the same call under the same
         lock), empty with no owner.
 
-        A READ. It changes no hold, pend, delivery or ask state. Asked by the launch
-        console's keep-warm verb through `moxi comms owner --json`. An empty `session_id` is
-        refused.
+        A READ. It changes no hold, pend, delivery or ask state. Asked through `moxi comms
+        owner --json` by a program that nudges idle sessions, before it nudges one. An
+        empty `session_id` is refused.
         """
         sid = frame.get("session_id")
         if not isinstance(sid, str) or not sid:
@@ -1721,7 +1721,7 @@ class Daemon:
                             and r.binding.releases_begun != begun):
                         # A release of the name began after this read did, and the row
                         # would be queued behind it: the read may have met the record's
-                        # lag that release read past (RULE H1). One more read decides.
+                        # lag that release read past. One more read decides.
                         continue
                     if not passes:
                         if not flagged:
@@ -2446,7 +2446,7 @@ class Daemon:
 
     def _on_turn(self, b: Binding, frame: dict) -> None:
         """`activity kind=turn` from the binding's own connection. Carrying `handled`, it
-        is a release point that stays open for a settle window (RULE H1), then settles.
+        is a release point that stays open for a settle window, then settles.
         Its read passing, it releases every row at once and opens no window. Its read
         not passing, whatever the queue holds, it opens the binding's window
         (`RELEASE_SETTLE_STEPS`): the harness may not have written the turn yet, and a
@@ -2558,7 +2558,7 @@ class Daemon:
 
     # ------------------------------------------------------------------ settle windows
     def _open_window(self, b: Binding, opened: float, unhandled) -> None:
-        """Open `b`'s settle window (RULE H1) for a `turn` frame that arrived at
+        """Open `b`'s settle window for a `turn` frame that arrived at
         `opened` (`time.monotonic`) and whose read did not pass. Any window the name
         still has is closed first."""
         w = SettleWindow(binding=b, opened=opened, steps=tuple(RELEASE_SETTLE_STEPS),

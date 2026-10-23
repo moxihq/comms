@@ -23,12 +23,10 @@ def test_the_daemon_starting_scripts_are_found():
     assert {"codex-smoke.py", "smoke.py"} <= names
 
 
-def test_no_script_passes_a_removed_flag():
-    """The daemon has no overseer beat and comms no profile, so no script passes
-    `--no-overseer-beat` or `--profile`."""
+def test_no_script_passes_a_profile():
+    """comms has no profile, so no script passes `--profile`."""
     for script in sorted(SCRIPTS.glob("*.py")):
         text = script.read_text()
-        assert "--no-overseer-beat" not in text, script.name
         assert "--profile" not in text and "MOXI_COMMS_PROFILE" not in text, script.name
 
 

@@ -130,7 +130,7 @@ def test_boot_rescan_rebuilds_the_pending_view(rig):
 def test_rescan_does_not_re_pend_what_an_unbound_name_already_handled(rig):
     """The contract is "rescan #names PAST CURSORS". A chosen name that handled a message
     and then unbound gets no row for it: no reader writes a row for an id at or below
-    the name's cursor (§3.3.2). The message is posted while the gateway is down, so only
+    the name's cursor. The message is posted while the gateway is down, so only
     the rescan reads it."""
     rig.gateway.disconnect()
     msg = rig.post_from_slot(6, ["curator@proj-a"], "handled before unbinding")
@@ -471,7 +471,7 @@ def test_mail_handed_to_a_session_that_unbinds_before_its_cursor_moves_is_pendin
         "and comms agents --seats says so"
 
     # ...and a re-bind's release hands it, which is what the view promised; the row
-    # goes when the turn holding it completes (§3.3.3), not at the hand-off
+    # goes when the turn holding it completes, not at the hand-off
     again = rig.shim(slot=2, name="reviewer", scope="proj-a")
     assert wait_until(lambda: any(q["message_id"] == msg.id for q in again.queue))
     assert wait_until(lambda: again.replaying is False)

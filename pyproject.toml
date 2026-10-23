@@ -1,6 +1,6 @@
 [project]
 name = "moxi-comms"
-version = "0.1.0"
+version = "0.1.1"
 description = "Messages between coding-agent sessions, delivered into their turns."
 requires-python = ">=3.11"
 license = "MIT"
@@ -79,8 +79,10 @@ build-backend = "hatchling.build"
 packages = ["src/moxi_comms"]
 
 [tool.hatch.build.targets.sdist]
-# Paths that are never published stay out of a source distribution built from any branch.
-exclude = ["/CLAUDE.md", "/.public-paths", "/.residue-allow"]
+# Only the published paths go into a source distribution, whatever branch it is built
+# from (hatchling adds pyproject.toml and .gitignore itself).
+only-include = ["CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "README.md", "docs", "scripts",
+                "src/moxi_comms", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

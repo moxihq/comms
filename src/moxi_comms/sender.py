@@ -129,7 +129,7 @@ def credential_for(gateway, db, sender: SenderIdentity, room: str = NAMES):
         raise SendFailed(f"no {room} posting credential is provisioned for "
                          f"{sender.qualified} — nothing was sent. Provisioning is the "
                          "operator's; ask them.")
-    return gateway.resolve_secret(row["bws_secret_id"], owner=owner), channel_id
+    return gateway.resolve_secret(directory.secret_of(row), owner=owner), channel_id
 
 
 def operator_from_env(env) -> str | None:

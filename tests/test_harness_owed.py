@@ -108,7 +108,7 @@ def test_an_interrupted_turn_voids_the_reminder_and_marks_the_digest_unhandled(
     assert unanswered(rig) == {}
 
 
-# OpenCode keeps comms' own delivery until B8.
+# OpenCode: reply reminders on comms' own delivery.
 
 class Handle:
     def __init__(self, fake):

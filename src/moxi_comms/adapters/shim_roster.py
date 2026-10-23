@@ -56,8 +56,8 @@ costs its own context, and comms being down must never stop an agent from workin
 Which comms to run: the line names the command the session's launcher stamped,
 `MOXI_COMMS_COMMAND`. A session an older launcher started has no stamp, and the line
 names this process's own install instead (`context.own_comms`); the listener runs in
-turns' endpoint process, whose install is the launching one in a fleet with one Moxi
-environment. With neither, the line names the bare `moxi comms`, as the Codex and
+turns' endpoint process, whose install is the launching one where one Moxi environment
+serves every session. With neither, the line names the bare `moxi comms`, as the Codex and
 OpenCode launchers' do.
 
 The own-binding race: the session's adapter binds before `claude` starts, so the snapshot

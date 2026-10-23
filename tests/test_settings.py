@@ -23,8 +23,7 @@ def test_the_schema_parses_and_its_overrides_are_spelled_with_the_prefix():
 
 def test_the_retired_keys_are_declared():
     retired = {k.name for k in config.schema().keys.values() if k.retired}
-    assert retired == {"claude.channel", "policy.voice_companion", "policy.never_held",
-                       "policy.next_turn_refused"}
+    assert retired == {"claude.channel", "policy.never_held", "policy.next_turn_refused"}
 
 
 def test_cache_required_is_declared_off_by_default_and_read_at_start():
@@ -73,7 +72,7 @@ chain = ["store"]
 roles = ["calendar", "pager"]
 
 [policy]
-cache_callers = ["operator", "companion"]
+cache_callers = ["operator", "herald"]
 labels = { "console@acme" = "the build console's send-only identity" }
 
 [provision]
@@ -102,7 +101,7 @@ cwd = "/src/x"
     assert cfg.local.retain_days == 7 and cfg.threads.reply_cap == 3
     assert cfg.secrets.chain == ("store",)
     assert cfg.secrets.roles == ("calendar", "pager")
-    assert cfg.policy.cache_callers == ("operator", "companion")
+    assert cfg.policy.cache_callers == ("operator", "herald")
     assert cfg.policy.labels == {"console@acme": "the build console's send-only identity"}
     assert (cfg.provision.slots, cfg.provision.operator) == (2, "alex")
     assert (cfg.replay.messages, cfg.replay.seconds) == (10, 7200)
@@ -146,7 +145,7 @@ def test_a_given_environment_is_read_instead_of_the_process(tmp_path):
     ("[threads]\nreply_cap = 0\n", "threads.reply_cap"),
     ("[threads]\nreply_cap = true\n", "threads.reply_cap"),
     ("[local]\nretain_days = -1\n", "local.retain_days"),
-    ('[secrets]\nchain = ["env", "bws"]\n', "secrets.chain"),
+    ('[secrets]\nchain = ["env", "vault"]\n', "secrets.chain"),
     ("[secrets]\nchain = []\n", "secrets.chain"),
     ('[secrets]\nroles = ["operator"]\n', "secrets.roles"),
     ('[secrets]\nroles = ["../up"]\n', "secrets.roles"),
@@ -252,7 +251,7 @@ def test_the_chain_reads_the_configured_store(tmp_path):
 
 
 def test_the_running_reader_refuses_a_bad_start_and_keeps_the_last_good_at_use():
-    """`config.Config`, the daemon's reader (§4.7): a bad file refuses `start()`; after a
+    """`config.Config`, the daemon's reader: a bad file refuses `start()`; after a
     good start, `current()` keeps the last good settings while the file is in error,
     reports once per change of the file, and follows the file again once it loads."""
     write_config(None, "[replay]\nmessages = [\n")

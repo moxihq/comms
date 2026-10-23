@@ -66,8 +66,8 @@ from .claude_shim import ClaudeShim
 
 log = logging.getLogger("comms.claude.adapter")
 
-#: How often the adapter looks for its session's endpoint while it has none (once
-#: a second, as the design has it).
+#: How often the adapter looks for its session's endpoint while it has none: once
+#: a second.
 LOOK_INTERVAL = 1.0
 #: While mail waits and the watch says a turn runs, how often the adapter reads the
 #: ledger (`facts()`) to check it: a turn end the watch missed between the look's read and

@@ -327,7 +327,7 @@ def s_daemon_offline(rig, mp):
 
 
 def s_verb_protocol(rig, mp):
-    """comms/refine §3.10: a daemon speaking another verb protocol is offline, exit 4."""
+    """A daemon speaking another verb protocol is offline, exit 4."""
     pair(rig)
     mp.setattr("moxi_comms.daemon.CLI_PROTOCOL", 0)
     return Case(["send", "reviewer", "x", "--posture", "none"], PLANNER, 4)
@@ -352,8 +352,8 @@ def s_standing(rig, mp):
 
 
 def s_never_bound(rig, mp):
-    """comms/refine §7.6: the daemon says the journal has never seen the name bound
-    (`ever_bound` false; the daemon's half is the names slice's), and no `--new-name`."""
+    """The daemon says the journal has never seen the name bound (`ever_bound` false;
+    the daemon's half is tested with the names), and no `--new-name`."""
     pair(rig)
     real = rig.daemon._resolve_query
 
@@ -480,7 +480,7 @@ def s_cap_below(rig, mp):
 # ---- 5. the cache reads
 
 def s_cold_refused(rig, mp):
-    """A read comms cannot make refuses the whole post, exit 6 ([F7])."""
+    """A read comms cannot make refuses the whole post, exit 6."""
     pair(rig)
     real = rig.daemon._session_query
 
@@ -786,7 +786,7 @@ def test_a_check_to_several_names_names_them_all(rig):
     assert reviewer.queue == [] and critic.queue == []
 
 
-def test_the_launch_console_argv_parses_and_passes(rig):
+def test_a_send_only_consoles_argv_parses_and_passes(rig):
     """A send-only console's form: `send --check` first, then the flags, `--` before the
     positionals, and a text that starts with `-`."""
     pair(rig)
@@ -809,7 +809,7 @@ def test_the_operators_lane_checks_too(rig, doors):
 
 
 def test_reply_takes_check(rig, doors):
-    """comms/refine §7.7: `moxi comms reply --check` runs the reply's checks and stops at the
+    """`moxi comms reply --check` runs the reply's checks and stops at the
     post, as `send --check` does, after its "replying to" line."""
     assert cli.build_parser().parse_args(["reply", "1", "x", "--check"]).check
     pair(rig)

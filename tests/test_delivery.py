@@ -1,10 +1,9 @@
 """Send -> route -> digest -> inject -> complete -> cursor advance -> reply.
 
-comms/refine §3 (the one queue): mail to a name that is not bound is a row in the
-queue, released at the name's next release point (§3.5; at a bind, on a passing read)
-with `held: true` and the `[held] sent …, waited …` mark (§3.7), and deleted only when the
-adapter names it handled (§3.3.3). Replay past the cursor stays for mail with no row
-(§3.3.4): the tests that exercise replay and its bounds post while the daemon is down,
+The one queue: mail to a name that is not bound is a row in the queue, released at the
+name's next release point (at a bind, on a passing read) with `held: true` and the
+`[held] sent …, waited …` mark, and deleted only when the adapter names it handled.
+Replay past the cursor stays for mail with no row: the tests that exercise replay and its bounds post while the daemon is down,
 beyond the boot rescan's window (`posted_while_down`), which is that case.
 """
 
@@ -25,15 +24,15 @@ def _queue(rig, q):
 
 
 def _waiting(rig, q):
-    """`agents`' `waiting` count for `q` (§3.11), 0 when it has none."""
+    """`agents`' `waiting` count for `q`, 0 when it has none."""
     return rig.daemon._query({"kind": "agents"})["waiting"].get(q, {}).get("count", 0)
 
 
 def posted_while_down(rig, monkeypatch, post):
     """Run `post` while the daemon is down, then boot it with a rescan window that holds
     only a later filler message, so what `post` made has no row: it reaches a name by
-    replay past its cursor (§3.3.4, "mail posted while the daemon was down beyond the
-    boot rescan's window"), not by a release."""
+    replay past its cursor (mail posted while the daemon was down beyond the boot
+    rescan's window), not by a release."""
     rig.daemon.stop()
     made = post()
     rig.post_from_slot(6, ["main@proj-b"], "filler: the one message the boot rescan reads")
@@ -42,7 +41,7 @@ def posted_while_down(rig, monkeypatch, post):
     return made
 
 
-def test_s1_happy_path_end_to_end(rig):
+def test_happy_path_end_to_end(rig):
     """A sender posts a tagged message; the daemon authenticates the webhook, parses the
     machine line at position zero, routes to the bound recipient's adapter; the shim
     holds until the turn boundary, injects ONE coalesced digest, and advances the cursor
@@ -119,9 +118,9 @@ def test_backlog_coalesces_into_one_digest_live_arrives_singly(rig, monkeypatch)
 
 
 def test_queued_mail_is_released_at_the_bind_as_one_digest_marked_held(rig):
-    """Mail to a name that is not bound is a row (§3.3.2); the bind's register releases
-    the rows on a passing read (§3.5), oldest first, each `held: true` (§3.7), and the
-    shim injects them as one digest whose frames say how long each waited ([R10]).
+    """Mail to a name that is not bound is a row; the bind's register releases
+    the rows on a passing read, oldest first, each `held: true`, and the
+    shim injects them as one digest whose frames say how long each waited.
     Released rows are not replay: each frame keeps its own attribution mark."""
     sent = [rig.post_from_slot(6, ["reviewer@proj-a"], text) for text in ("one", "two",
                                                                            "three")]
@@ -149,7 +148,7 @@ def test_a_real_mixed_live_and_replay_digest_keeps_the_live_frames_mark(rig, mon
     replay and speaks only for the replayed frame; the live arrival keeps its own
     `(unverified)`, because a frame with no mark means verified and
     that message was not. (The backlog is posted while the daemon is down, so it has no
-    row and goes by replay, §3.3.4.)"""
+    row and goes by replay.)"""
     posted_while_down(rig, monkeypatch, lambda: rig.post_from_slot(
         6, ["reviewer@proj-a"], "while you were out", display="ghost@proj-a"))
     reviewer = rig.shim(slot=2, name="reviewer", scope="proj-a")
@@ -174,9 +173,9 @@ def test_a_real_mixed_live_and_replay_digest_keeps_the_live_frames_mark(rig, mon
 
 def test_deferral_then_bind_then_release_then_handled(rig):
     """Deferral for chosen names comes along for free: an unbound chosen name's mail is
-    a row in the queue (§3.3.2), released at its bind (§3.5), and gone once the adapter
-    names it handled (§3.3.3). (The roster's rendering of `waiting` is §7.3's; this
-    reads the `agents` answer it renders.)"""
+    a row in the queue, released at its bind, and gone once the adapter
+    names it handled. (The roster's rendering of `waiting` is tested with the roster;
+    this reads the `agents` answer it renders.)"""
     code, out = rig.cli(["send", "--posture", "none", "--new-name", "curator@proj-a",
                          "the corpus needs a pass"],
                         slot=1, name="planner", scope="proj-a")
@@ -200,7 +199,7 @@ def test_deferral_then_bind_then_release_then_handled(rig):
     curator.on_turn_boundary()
     assert cursors.read("curator@proj-a") == delivered_id
     # ...and the shim's turn frame names it handled, so it stops waiting (the cursor
-    # alone deletes no row, [R2]: test_cold_sends and test_queue pin that with raw frames)
+    # alone deletes no row: test_cold_sends and test_queue pin that with raw frames)
     assert wait_until(lambda: _waiting(rig, "curator@proj-a") == 0)
     code, listing = rig.cli(["agents", "--seats"], slot=1)
     assert "curator@proj-a" in listing and "message(s)" not in listing
@@ -225,7 +224,7 @@ def test_replay_stops_at_the_cursor(rig):
 
 
 def test_bounded_replay_on_a_first_bind(rig, monkeypatch):
-    """Bounded replay (absent cursor) bounds mail with no row (§3.3.4)."""
+    """Bounded replay (absent cursor) bounds mail with no row."""
     write_config(None, "[replay]\nmessages = 3\n")   # the reader's own bound
     posted_while_down(rig, monkeypatch, lambda: [
         rig.post_from_slot(6, ["curator@proj-a"], f"msg-{i}") for i in range(6)])
@@ -240,7 +239,7 @@ def test_bounded_replay_on_a_first_bind(rig, monkeypatch):
 
 
 def test_bounded_replay_drops_mail_older_than_T(rig, monkeypatch):
-    """REPLAY_T bounds mail with no row (§3.3.4); queued mail has no age limit (§3.7)."""
+    """REPLAY_T bounds mail with no row; queued mail has no age limit."""
     write_config(None, "[replay]\nhours = 1\n")
     old, fresh = posted_while_down(rig, monkeypatch, lambda: [
         rig.post_from_slot(6, ["curator@proj-a"], "ancient"),
@@ -258,7 +257,7 @@ BROKEN_CONFIG = "block = false\n[replay]\nmessages = [\n"
 
 
 def test_a_config_file_broken_mid_run_keeps_the_last_good_block(rig, caplog):
-    """§4.7: at use the daemon keeps its last good settings and reports the error once per
+    """At use the daemon keeps its last good settings and reports the error once per
     change of the file. A message posted while the file is broken is routed as the last
     good `block` says, and routing goes on once the file is fixed."""
     reviewer = rig.shim(slot=2, name="reviewer", scope="proj-a")
@@ -325,14 +324,14 @@ def test_mid_turn_death_hands_the_whole_digest_again(rig):
     reviewer.die_mid_turn()                    # the Stop hook never fires
     wait_until(lambda: "reviewer@proj-a" not in rig.daemon.bindings)
     assert cursors.read("reviewer@proj-a") is None, "no advance without completion"
-    # §3.3.2 row 4: the unbind gives every handed, unhandled id past the cursor a row
+    # the unbind gives every handed, unhandled id past the cursor a row
     assert _queue(rig, "reviewer@proj-a") == {m.id for m in sent}
 
     again = rig.shim(slot=4, name="reviewer", scope="proj-a")
     wait_for_queue(again, 2)
     wait_until(lambda: again.replaying is False)
     assert [p["text"] for p in again.queue] == ["alpha", "beta"]
-    assert all(p["held"] is True for p in again.queue), "released at the bind (§3.5)"
+    assert all(p["held"] is True for p in again.queue), "released at the bind"
 
 
 def test_multicast_is_one_post_one_thread_and_per_recipient_cursors(rig):
@@ -513,7 +512,7 @@ def test_an_old_speaker_mark_is_delivered_and_shown_as_unmarked(rig):
 
 
 def test_the_record_carries_the_machine_line_at_position_zero(rig):
-    """Line zero carries the send's cold-at (§3.8.6, [R70]): for a recipient that is not
+    """Line zero carries the send's cold-at: for a recipient that is not
     bound, `floor(t_ask)`, a time already reached."""
     rig.shim(slot=1, name="planner", scope="proj-a")
     before = int(time.time())
@@ -531,12 +530,12 @@ def test_the_record_carries_the_machine_line_at_position_zero(rig):
 
 
 # --------------------------------------------------------------------------- the waiting view
-# The rule (§3.3, §3.11): `waiting(q)` counts q's rows in the one queue. A row is written
+# The rule: `waiting(q)` counts q's rows in the one queue. A row is written
 # for mail to q while q is not bound, and for every id q's binding was handed and did not
 # report handled when it unbinds; it is deleted only when a binding that was handed it
-# names it `handled` (§3.3.3), never by the cursor, the unbind or its age (§3.7). Replay
+# names it `handled`, never by the cursor, the unbind or its age. Replay
 # is bounded by REPLAY_N / REPLAY_T only when the cursor is absent, and only for mail with
-# no row (§3.3.4).
+# no row.
 
 REVIEWER = dict(slot=2, name="reviewer", scope="proj-a")
 REVIEWER_Q = "reviewer@proj-a"
@@ -552,7 +551,7 @@ def test_an_id_claimed_from_holding_keeps_its_row_until_handled(rig):
     """A message is handed and queued in the shim, the daemon restarts, the boot rescan
     runs while the shim is offline and gives it a row, and the shim re-registers with it
     in `holding`. The register claims it, so no release hands it twice; the row stays
-    until the adapter names it handled ([R2])."""
+    until the adapter names it handled."""
     shim = rig.shim(**REVIEWER, autoreconnect=True, backoff=itertools.repeat(0.5))
     msg = rig.post_from_slot(6, [REVIEWER_Q], "handed, turn not over")
     wait_for_queue(shim, 1)
@@ -578,7 +577,7 @@ def test_an_id_claimed_from_holding_keeps_its_row_until_handled(rig):
 
 def test_a_reader_racing_the_hand_over_writes_no_row_and_replay_hands_nothing_twice(rig):
     """A reader that finds an id this binding was already handed writes no row for it
-    (§3.3.2: handled mail is never queued again), and replay that reads it again fails
+    (handled mail is never queued again), and replay that reads it again fails
     its claim -- handed is handed."""
     shim = rig.shim(**REVIEWER)
     wait_until(lambda: shim.replaying is False)
@@ -596,9 +595,8 @@ def test_a_reader_racing_the_hand_over_writes_no_row_and_replay_hands_nothing_tw
 
 
 def test_a_queued_row_past_REPLAY_T_is_still_released_at_a_first_bind(rig):
-    """Mail handed to a session that unbinds with no cursor gets a row (§3.3.2 row 4).
-    Queued mail has no age limit ([F11], [R9]) and bounded replay is for mail with no row
-    (§3.3.4): a first bind long past REPLAY_T still gets it, by release."""
+    """Mail handed to a session that unbinds with no cursor gets a row.
+    Queued mail has no age limit and bounded replay is for mail with no row: a first bind long past REPLAY_T still gets it, by release."""
     shim = rig.shim(**REVIEWER)
     old = rig.post_from_slot(6, [REVIEWER_Q], "handed, never handled")
     wait_for_queue(shim, 1)
@@ -624,8 +622,8 @@ def test_a_queued_row_past_REPLAY_T_is_still_released_at_a_first_bind(rig):
 
 
 def test_a_first_bind_hands_every_queued_id_and_the_unbind_keeps_the_rows(rig, monkeypatch):
-    """REPLAY_N bounds replay of mail with no row, never the queue (§3.3.4): a first bind
-    releases all six rows, and an unbind with no cursor deletes none of them ([R2])."""
+    """REPLAY_N bounds replay of mail with no row, never the queue: a first bind
+    releases all six rows, and an unbind with no cursor deletes none of them."""
     write_config(None, "[replay]\nmessages = 3\n")   # the reader's own bound
     posted = [rig.post_from_slot(6, ["curator@proj-a"], f"msg-{i}") for i in range(6)]
     assert wait_until(lambda: len(_queue(rig, "curator@proj-a")) == 6)

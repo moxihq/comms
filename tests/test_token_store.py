@@ -1,8 +1,6 @@
 """The token store: what may rest, where, at what mode, and who may spend it.
 
-The store's door is the declared pair, `read_secret` and `write_secret`. The machine
-token the fleet's Bitwarden step paid with, its reserved key and the paste verb that
-wrote it are the fleet add-on's (design §7.2-§7.3), so this file has no bws fake. A file
+The store's door is the declared pair, `read_secret` and `write_secret`. A file
 that is not a flat table of strings holds no comms key: a read misses, a write refuses.
 """
 
@@ -14,7 +12,6 @@ import tomllib
 
 import pytest
 
-from moxi_comms import tokens
 from moxi_comms.mock_gateway import MockGateway
 from moxi_comms.paths import tokens_dir
 from moxi_comms.tokens import (NOT_A_MAP, STORE_ENV_VAR, TokenStore, TokenStoreError,
@@ -66,10 +63,8 @@ def test_a_role_that_is_still_unknown_has_no_store_path_at_all(tmp_path):
     assert "stenographer" not in str(e.value)
 
 
-def test_the_fleet_names_are_gone():
-    for gone in ("BWS_ACCESS_TOKEN_KEY", "FLEET_ROLES", "ROLE_VOICE_LOOP",
-                 "ROLE_REMOTE_EAR", "ROLE_CALENDAR"):
-        assert not hasattr(tokens, gone), gone
+def test_the_stores_door_is_the_declared_pair():
+    assert callable(TokenStore.read_secret) and callable(TokenStore.write_secret)
     assert not hasattr(TokenStore, "read") and not hasattr(TokenStore, "write")
 
 
@@ -250,8 +245,8 @@ def test_a_loose_file_is_refused_by_every_half_of_the_boundary(tmp_path):
 def test_a_file_that_is_not_a_flat_table_of_strings_holds_no_key_and_is_left_alone(
         tmp_path, bare):
     """A bare token (what an older install's paste verb wrote) or any other shape is not
-    the map this store writes: it holds no comms key, so a read misses as it did before
-    the port; a write refuses it with `NOT_A_MAP`, naming no path, and never overwrites
+    the map this store writes: it holds no comms key, so a read misses; a write
+    refuses it with `NOT_A_MAP`, naming no path, and never overwrites
     it."""
     store = TokenStore(tmp_path)
     owner = owner_for_slot(1)

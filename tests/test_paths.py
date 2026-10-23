@@ -45,11 +45,6 @@ def test_every_location_reads_a_given_environment(tmp_path):
     assert paths.daemon_socket(env) == tmp_path / "runtime" / "comms" / "moxi-comms-daemon.sock"
 
 
-def test_the_driver_anchor_directory_is_gone():
-    """The `driver` kind is the fleet's add-on's (design §7.2): comms reads no anchor."""
-    assert not hasattr(paths, "driver_sessions_dir")
-
-
 def test_a_socket_under_the_runtime_directory_passes():
     sock = paths.runtime_dir() / "comms-claimsrv-x.sock"
     assert paths.refuse_outside_runtime(sock, "MOXI_COMMS_CLAIM_SOCKET") == sock
@@ -59,8 +54,8 @@ def test_a_socket_under_the_runtime_directory_passes():
 
 @pytest.mark.parametrize("variable", ["MOXI_COMMS_CLAIM_SOCKET", "MOXI_COMMS_SOCKET"])
 def test_a_socket_outside_the_runtime_directory_is_refused(tmp_path, variable):
-    """A fleet session's stamp names a socket under another program's runtime root; a
-    send inside it must not claim that identity against comms' daemon (design §10.2)."""
+    """A session whose stamp names a socket under another program's runtime root: a
+    send inside it must not claim that identity against comms' daemon."""
     other = tmp_path / "other-program" / "comms-daemon.sock"
     with pytest.raises(paths.OutsideRuntime) as caught:
         paths.refuse_outside_runtime(other, variable)

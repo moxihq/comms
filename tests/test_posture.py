@@ -40,7 +40,7 @@ from test_cold_sends import bind  # noqa: F401 -- a shared fixture
 PLANNER = dict(slot=1, name="planner")
 REVIEWER = dict(slot=2, name="reviewer")
 CRITIC = dict(slot=3, name="critic")
-THINKER = dict(slot=5, name="thinker", env={"MOXI_COMMS_GLOBAL": "1"})
+ARCHIVIST = dict(slot=5, name="archivist", env={"MOXI_COMMS_GLOBAL": "1"})
 
 P, R, C = "planner", "reviewer", "critic"
 
@@ -79,7 +79,7 @@ def indexed(rig, ask_id, daemon=None):
 
 def open_ask(rig, to="reviewer", text="which branch?", *, who=PLANNER):
     """A verified single-reply ask: its author is bound, so the record proves it. Some
-    recipients are never bound in their test, so it passes `--new-name` (§7.6); on a
+    recipients are never bound in their test, so it passes `--new-name`; on a
     name bound now or before that changes nothing."""
     code, out = rig.cli(["send", "--new-name", to, text, "--posture", "once"], **who)
     assert code == 0, out
@@ -198,21 +198,16 @@ def test_keyword_calls_give_todays_bytes_and_a_positional_one_fails():
     assert machine_line.format_line(["a"]) == "::to a"
     assert machine_line.compose(["a"], "t", reply_to="5") == "::to a re:5\nt"
     assert machine_line.compose(["a"], "t") == "::to a\nt"
-    # Every parameter after `recipients` (and `text`) is keyword-only: a stale
-    # positional call, written when `speaker` was second, fails instead of rebinding.
+    # Every parameter after `recipients` (and `text`) is keyword-only: a positional
+    # call fails instead of binding to the wrong parameter.
     with pytest.raises(TypeError):
         machine_line.format_line(["a", "b"], False, "123")
     with pytest.raises(TypeError):
         machine_line.compose(["a"], "t", False, "5")
-    for gone in ("speaker", "operator_words", "via_phone"):
-        with pytest.raises(TypeError):
-            machine_line.format_line(["a"], **{gone: True})
-        with pytest.raises(TypeError):
-            machine_line.compose(["a"], "t", **{gone: True})
 
 
-def test_bodies_with_voices_args_gives_todays_bytes():
-    """An external caller pins `render(...) == cli._bodies(args, ...)`
+def test_bodies_with_a_text_only_namespace_gives_one_plain_body():
+    """A caller outside comms compares its own render with `cli._bodies(args, ...)`,
     with an `args` that carries the text: no posture on `args`."""
     ctx = SimpleNamespace(gateway=SimpleNamespace(max_content_length=16_000),
                           say=lambda _t="": None)
@@ -237,8 +232,7 @@ def test_send_writes_the_posture_it_is_given(rig, flags, token):
 
 
 @pytest.mark.parametrize("verb", ["send", "reply"])
-@pytest.mark.parametrize("flag", [["--speaker"], ["--operator-words"], ["--cold"],
-                                  ["--via", "phone"]])
+@pytest.mark.parametrize("flag", [["--speaker"], ["--operator-words"], ["--cold"]])
 def test_a_removed_flag_is_argparses_error_and_nothing_is_posted(rig, verb, flag):
     ask = rig.post_from_slot(6, [R], "q", display=P)
     argv = (["send", "planner", "hi", "--posture", "open"] if verb == "send"
@@ -676,16 +670,16 @@ def test_the_operators_reply_to_an_agents_ask_still_carries_the_default(rig):
     assert line_zero(last(rig)).posture == "none", "a stamp, not a refusal"
 
 
-# --------------------------------------------------------------- (g) thinker is bound
+# ------------------------------------------------------------- (g) archivist is bound
 
-def test_an_agents_ask_binds_thinker_as_an_agent(rig):
+def test_an_agents_ask_binds_archivist_as_an_agent(rig):
     rig.shim(**PLANNER)
-    rig.shim(slot=5, name="thinker", global_=True)
-    ask = open_ask(rig, to="thinker")
-    code, out = rig.cli(["send", "--posture", "none", "planner", "unrelated"], **THINKER)
+    rig.shim(slot=5, name="archivist", global_=True)
+    ask = open_ask(rig, to="archivist")
+    code, out = rig.cli(["send", "--posture", "none", "planner", "unrelated"], **ARCHIVIST)
     assert refused(code, out), out
     assert f"msg {ask.id}" in out
-    code, out = rig.cli(["reply", ask.id, "the answer"], **THINKER)
+    code, out = rig.cli(["reply", ask.id, "the answer"], **ARCHIVIST)
     assert code == 0, out
 
 
@@ -860,7 +854,6 @@ def test_the_payload_carries_the_posture_live(rig):
         wait_until(lambda: any(p["message_id"] == mid for p in reviewer.queue))
         p = next(p for p in reviewer.queue if p["message_id"] == mid)
         assert (p["posture"], p["backlog"]) == (posture, False)
-        assert not {"speaker", "operator_words", "via_phone"} & set(p)
 
 
 def test_the_payload_carries_the_posture_on_release_at_bind(rig):
@@ -907,7 +900,7 @@ def _payload(**extra):
 
 def test_the_frame_line_renders_the_posture():
     assert frame_line(_payload()) == f"[comms] from {P} · msg 101"
-    # a payload from a pre-round daemon still carrying the removed keys shows none
+    # a payload from an older daemon still carrying the old mark keys shows none
     assert frame_line(_payload(speaker=True, operator_words=True, via_phone=True)) == \
         f"[comms] from {P} · msg 101"
     assert frame_line(_payload(posture="none")).endswith(" · [no reply]")
@@ -1026,7 +1019,7 @@ def test_the_cure_carries_the_flags_a_reply_takes_and_leaves_out_audience(rig, p
 
 
 def test_the_cure_carries_held_to_every_adapter(rig, bind):
-    """`--held` is accepted for every recipient ([F5], [F8]), so the cure carries it to an
+    """`--held` is accepted for every recipient, so the cure carries it to an
     asker on another adapter too."""
     bind(**PLANNER, adapter="codex")
 

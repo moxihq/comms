@@ -22,7 +22,7 @@ from fake_opencode import FakeOpenCode
 @pytest.fixture(autouse=True)
 def _gate_reads_warm(monkeypatch):
     """This suite tests the opencode adapter's own mechanics, past the daemon's cold-cache
-    gate. Under THE RULE (cold-sends) the gate refuses every live message to an opencode agent whose cache it cannot read (the fake writes no record for the clock); the
+    gate. Under the cold-send rule the gate refuses every live message to an opencode agent whose cache it cannot read (the fake writes no record for the clock); the
     gate still runs here, on a clock that reads warm. `test_cold_every_sender.py` tests
     what it does with the real reading."""
     clock_reads_warm(monkeypatch, "opencode")
@@ -111,7 +111,7 @@ def creates(fake) -> list:
 
 def test_a_first_launch_records_its_session_and_a_relaunch_creates_a_new_one(
         rig, launcher, fake):
-    """[C3]: an OpenCode launch is a new session, as a Claude launch is."""
+    """An OpenCode launch is a new session, as a Claude launch is."""
     first = launcher()
     sid = first.session_id
     assert sid.startswith("ses")
@@ -195,7 +195,7 @@ def test_a_server_restart_keeps_the_launchs_session(rig, launcher, fake, monkeyp
 
 def test_a_session_gone_after_a_server_restart_closes_the_launchs_posts(
         rig, launcher, fake, monkeypatch):
-    """Rule 7 inside a launch: the launch's session gone is loud and never replaced."""
+    """Inside a launch, the launch's session gone is loud and never replaced."""
     adapter = launcher()
     sid = adapter.session_id
     with fake.lock:
@@ -327,7 +327,7 @@ def test_an_idle_before_the_model_saw_the_digest_moves_no_cursor(rig, launcher, 
 
 
 def test_a_posted_digest_is_not_posted_again_after_a_daemon_restart(rig, launcher, fake):
-    """M2 (§4.6, [R19]): the digest is posted and its turn runs when the daemon
+    """The digest is posted and its turn runs when the daemon
     restarts. The reconnect lists its id as `holding`, so the replay does not queue it
     again, and once the turn ends and the cursor moves it has been posted once."""
     from moxi_comms import daemon as daemon_mod
@@ -355,7 +355,7 @@ def test_a_posted_digest_is_not_posted_again_after_a_daemon_restart(rig, launche
 
 def test_a_post_lost_with_its_server_replays_at_the_next_registration(
         rig, launcher, fake, monkeypatch):
-    """b4-1 [M1] on OpenCode: the server dies under a running post. The restarted
+    """On OpenCode, the server dies under a running post. The restarted
     server's reconcile finds the session idle and the turn not ended well, settles the
     post as not completed and lets its ids go, so the next registration hands the
     message again."""
@@ -666,7 +666,7 @@ def test_the_status_lines_survive_a_relaunch_while_the_session_is_replaced(
     assert any("said in the first launch" in row["text"] for row in oc.status_lines(path))
 
 
-# ------------------------------------- [B8] what the harness reports (§4.3, [R15]-[R18])
+# ---------------------------------------------------------- what the harness reports
 
 def turn_frames(frames):
     return frame_kinds(frames, "turn")
@@ -674,7 +674,7 @@ def turn_frames(frames):
 
 def test_an_operator_turn_sends_activity_at_busy_and_one_turn_at_its_idle(
         rig, launcher, fake, frames):
-    """[R16]: busy is the turn start (no-kind activity), the idle after it the turn end,
+    """Busy is the turn start (no-kind activity), the idle after it the turn end,
     whoever prompted; the server's two idle events make one frame."""
     adapter = launcher()
     before = len(frames)
@@ -721,7 +721,7 @@ def test_an_aborted_turn_sends_no_turn_and_its_ids_go_unhandled_on_the_next(
         rig, launcher, fake, frames):
     """The window's Esc mirrors Claude Code, whose Stop does not run on a user
     interrupt: no `turn` at the abort's idle; the digest's ids stay held and are
-    `unhandled` on the next turn frame (§4.3a, §4.4)."""
+    `unhandled` on the next turn frame."""
     fake.auto = False
     adapter = launcher()
     send(rig, "abort me")
@@ -741,7 +741,7 @@ def test_an_aborted_turn_sends_no_turn_and_its_ids_go_unhandled_on_the_next(
 
 
 def test_compaction_sends_ready_compact_and_leaves_busy(rig, launcher, fake, frames):
-    """[R17], §4.3c: an automatic compaction runs inside the busy loop."""
+    """An automatic compaction runs inside the busy loop."""
     fake.auto = False
     adapter = launcher()
     fake.control("type", {"session": adapter.session_id, "text": "long turn"})
@@ -755,7 +755,7 @@ def test_compaction_sends_ready_compact_and_leaves_busy(rig, launcher, fake, fra
 
 def test_ready_startup_once_and_none_on_a_server_restart(
         rig, launcher, fake, monkeypatch, frames):
-    """[R15]: the launch's own session is `ready source=startup`; a server restart's
+    """The launch's own session is `ready source=startup`; a server restart's
     report refreshes are no-kind activity, never `ready`."""
     adapter = launcher()
     ready = frame_kinds(frames, "ready")
@@ -771,7 +771,7 @@ def test_ready_startup_once_and_none_on_a_server_restart(
 
 def test_a_window_new_is_followed_and_a_child_session_is_not(
         rig, launcher, fake, frames):
-    """[R18], §4.3b: a top-level `session.created` the launcher did not make is the
+    """A top-level `session.created` the launcher did not make is the
     window's /new or /clear: rebind, session file, then `ready source=clear` naming the
     new session; mail goes there. A child session is not followed."""
     adapter = launcher()
@@ -818,7 +818,7 @@ def test_a_post_pending_at_the_follow_goes_again_into_the_new_session(
 
 def test_a_compaction_while_the_daemon_is_away_is_reported_after_the_register(
         rig, launcher, fake, frames):
-    """§3.4 item 1: the `ready` is owed and sent once, right after the next register's
+    """The `ready` is owed and sent once, right after the next register's
     answer."""
     from moxi_comms import daemon as daemon_mod
     adapter = launcher()

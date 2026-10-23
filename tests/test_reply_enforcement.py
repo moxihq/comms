@@ -5,13 +5,12 @@ held open once by the Stop hook the shim already runs; each debt draws one count
 the session runs, and every missing or failed fact lets the turn end. A debt is paid by
 the session's own message to the sender, and a sender's answer threaded to that payment
 owes nothing. An ignored reminder is recorded where the owed party sees it. The
-operator's voice binding is a roster row like any other ([F30]). The quiet rule is in the
+operator's binding is a roster row like any other. The quiet rule is in the
 context block.
 
-comms/refine §6.2 and §6.3 removed `--operator-words`, `--speaker` and the voice
-companion: what is left here of them is old records parsing ([R29]) and the rule that an
-operator debt is paid only by a message to `operator` ([C6]). The rest of [R30] is in
-`test_old_marks.py`.
+`[operator-words]` and `[speaker]` are marks an older comms wrote; old records that carry
+them still parse, and the marks are read and ignored. An operator debt is paid only by a
+message to `operator`. The rest of the old marks' tests are in `test_old_marks.py`.
 
 Every rig test here runs on the mock and on the local backend (`BOTH_BACKENDS` in
 conftest), and no test targets the Discord implementation. Tests that take no
@@ -38,13 +37,13 @@ import shim_drive
 PLANNER = dict(slot=1, name="planner")
 REVIEWER = dict(slot=2, name="reviewer")
 CRITIC = dict(slot=3, name="critic")
-THINKER = dict(slot=5, name="thinker", env={"MOXI_COMMS_GLOBAL": "1"})
+ARCHIVIST = dict(slot=5, name="archivist", env={"MOXI_COMMS_GLOBAL": "1"})
 LEAD = dict(slot=6, name="lead", env={"MOXI_COMMS_GLOBAL": "1"})
 
 P, R, C = "planner", "reviewer", "critic"
 
-#: [C6]: thinker is a name like any other, no companion of the operator's.
-VOICE_SID = "eeeeeeee-5555-4555-8555-555555555555"
+#: The session id of the operator's own binding.
+OPERATOR_SID = "eeeeeeee-5555-4555-8555-555555555555"
 
 
 # --------------------------------------------------------------------------- helpers
@@ -73,7 +72,7 @@ def query_owed(identity, authors=None, referents=()):
 def send(rig, to, text="x", *flags, who=PLANNER):
     """One send that goes. These tests were written when a plain send was open, so a new
     send with no `--posture` states open. Many send before the recipient's first bind,
-    so it passes `--new-name` (§7.6); on a name bound now or before that changes
+    so it passes `--new-name`; on a name bound now or before that changes
     nothing."""
     flags = list(flags)
     if "--posture" not in flags and "--reply-to" not in flags:
@@ -124,11 +123,11 @@ def bind():
         c.close()
 
 
-def bind_voice(bind):
+def bind_operator(bind):
     """The operator bound by a bare binding of its own: a session that has made no
     request yet, so its cache reads `fresh` and mail to it goes live."""
     return bind(slot=4, name="operator", global_=True, adapter="claude-shim",
-                session_id=VOICE_SID, projects_root=str(projects_root()), turned=False)
+                session_id=OPERATOR_SID, projects_root=str(projects_root()), turned=False)
 
 
 @pytest.fixture
@@ -160,7 +159,7 @@ def payload(**extra):
 # ------------------------------------------------ an old [operator-words] line
 
 def test_an_old_marked_line_parses_with_every_other_field():
-    """[R29]: the slot stays, matched and dropped."""
+    """An old mark keeps its slot: matched and dropped."""
     ml = machine_line.parse(
         "::to lead re:77 [audience:operator] [operator-words] [next-turn] [no reply]\nhe asks")
     assert (ml.recipients, ml.reply_to, ml.audience, ml.held, ml.posture, ml.text) == \
@@ -186,7 +185,7 @@ def test_the_old_mark_out_of_place_or_doubled_makes_line_zero_prose(line):
 
 
 def test_the_frame_line_shows_no_removed_mark_even_from_a_payload_that_carries_one():
-    """A pre-round daemon's payload still carries the three keys; the frame drops them."""
+    """An older daemon's payload may still carry the three keys; the frame drops them."""
     line = frame_line(payload(operator_words=True, speaker=True, via_phone=True,
                               audience="operator", posture="none"))
     assert line.endswith("audience: operator · [no reply]")
@@ -194,8 +193,9 @@ def test_the_frame_line_shows_no_removed_mark_even_from_a_payload_that_carries_o
         assert mark not in line
 
 
-def test_bodies_keeps_the_voice_pin():
-    """An external caller pins `cli._bodies` with a bare namespace: today's bytes, exactly."""
+def test_bodies_keeps_its_bare_namespace_form():
+    """A caller outside comms calls `cli._bodies` with a bare namespace and gets exactly
+    these bytes."""
     from types import SimpleNamespace
 
     class Ctx:
@@ -224,7 +224,6 @@ def test_the_index_is_fed_live_with_literal_tags_posture_reply_and_attribution(r
     e = indexed(rig, ask.id)
     assert (e.author, e.tags, e.posture, e.reply_to, e.verified) == \
         (P, (R,), "once", None, True), "the verb writes qualified tags"
-    assert not hasattr(e, "voice_up"), "[C6]: nothing reads the voice session's state"
     typed = raw_post(rig, 1, P, "::to reviewer re:5\nby hand")
     e = indexed(rig, typed.id)
     assert (e.tags, e.reply_to) == (("reviewer",), "5"), "tags exactly as written"
@@ -312,15 +311,14 @@ def test_owed_sent_lists_the_identitys_entries_to_each_author_after_its_id(rig):
         [early.id, later.id]
 
 
-def test_owed_adds_no_companion_beside_the_operator(rig, bind):
-    """[C6]: the answer names only the authors asked for, and its rows carry no
-    `voice_up`, while the operator's voice session is up."""
+def test_owed_names_only_the_authors_asked_for(rig, bind):
+    """The answer names only the authors asked for, while the operator is bound."""
     rig.shim(**REVIEWER)
-    bind_voice(bind)
+    bind_operator(bind)
     wait_until(lambda: "operator" in rig.daemon.bindings)
-    to_thinker = send(rig, "thinker", "done", who=REVIEWER)
+    to_archivist = send(rig, "archivist", "done", who=REVIEWER)
     to_him = send(rig, "operator", "done", who=REVIEWER)
-    indexed(rig, to_thinker.id), indexed(rig, to_him.id)
+    indexed(rig, to_archivist.id), indexed(rig, to_him.id)
     answer = query_owed(R, {"operator": "0"})
     assert answer["sent"] == {"operator": [{"id": to_him.id, "posture": "open"}]}
 
@@ -455,7 +453,7 @@ def test_roster_of_keeps_each_names_adapter_beside_its_tier():
 
 
 def test_the_operators_join_and_leave_render_like_any_names():
-    """[R44]: no voice words; `operator` joins and leaves as any name does."""
+    """`operator` joins and leaves as any name does."""
     from moxi_comms.adapters import shim_roster
     now = {"operator": {"tier": "standing", "adapter": "claude-shim"}}
     assert shim_roster.render_delta(["operator"], [], now) == (
@@ -463,7 +461,6 @@ def test_the_operators_join_and_leave_render_like_any_names():
         "is always current.)")
     assert shim_roster.render_delta([], ["operator"], {}) == (
         "(comms roster update: operator left — `moxi comms agents` is always current.)")
-    assert not hasattr(shim_roster, "VOICE_JOIN") and not hasattr(shim_roster, "VOICE_LEAVE")
 
 
 def test_other_joins_and_leaves_render_as_today_and_an_old_memory_has_no_adapter():
@@ -474,9 +471,8 @@ def test_other_joins_and_leaves_render_as_today_and_an_old_memory_has_no_adapter
         "— `moxi comms agents` is always current.)")
 
 
-def test_render_agents_lists_the_operator_as_a_row_and_has_no_voice_line():
-    """[R44]: the operator's binding is a row like any other, absent when unbound; the
-    voice line and its constants are gone."""
+def test_render_agents_lists_the_operator_as_a_row():
+    """The operator's binding is a row like any other, absent when unbound."""
     from moxi_comms import roster_view
     assert roster_view.render_agents({"bindings": []}) == (
         "no live bindings — nothing is addressable right now.")
@@ -486,19 +482,16 @@ def test_render_agents_lists_the_operator_as_a_row_and_has_no_voice_line():
     assert up.splitlines() == [
         "operator                 standing   adapter claude-shim",
         f"{P:<24} chosen     adapter claude-shim"]
-    for gone in ("VOICE_UP", "VOICE_DOWN", "voice_line", "SPEECH_ADAPTER"):
-        assert not hasattr(roster_view, gone), gone
 
 
 def test_comms_agents_and_the_snapshot_list_the_operator(rig, bind):
     from moxi_comms.adapters import shim_roster
-    bind_voice(bind)
+    bind_operator(bind)
     wait_until(lambda: "operator" in rig.daemon.bindings)
     code, out = rig.cli(["agents"], **PLANNER)
     assert code == 0
     assert [ln for ln in out.splitlines() if ln.startswith("operator ")] == [
         "operator                 chosen     adapter claude-shim"]
-    assert "voice session" not in out
     envelope, online = shim_roster.snapshot(daemon_socket(), env={})
     assert online and envelope.endswith("\n" + out.rstrip("\n"))
 
@@ -507,12 +500,12 @@ def test_the_delta_announces_the_operator_joining_and_leaving(rig, bind, tmp_pat
     from moxi_comms.adapters import shim_roster
     state = tmp_path / "roster.json"
     shim_roster.write_state(state, {})
-    voice = bind_voice(bind)
+    op = bind_operator(bind)
     wait_until(lambda: "operator" in rig.daemon.bindings)
     envelope, _ = shim_roster.delta(daemon_socket(), state, env={})
     assert envelope == ("(comms roster update: operator [chosen] is now reachable — "
                         "`moxi comms agents` is always current.)")
-    voice.close()
+    op.close()
     wait_until(lambda: "operator" not in rig.daemon.bindings)
     envelope, _ = shim_roster.delta(daemon_socket(), state, env={})
     assert envelope == ("(comms roster update: operator left — `moxi comms agents` is always "
@@ -709,7 +702,7 @@ def boundary(shim):
 def test_owing_branch_clause_two_operator_by_name_and_by_tier():
     from moxi_comms import owed
     assert owed.owing_branch(msg(1, "operator")) == "operator"
-    assert owed.owing_branch(msg(1, "jp", tier="operator")) == "operator"
+    assert owed.owing_branch(msg(1, "alice", tier="operator")) == "operator"
 
 
 def test_owing_branch_a_director_needs_the_declaration_verified_and_once():
@@ -721,16 +714,15 @@ def test_owing_branch_a_director_needs_the_declaration_verified_and_once():
     assert owed.owing_branch(msg(1, attribution="labeled"), (LEAD_Q,)) is None
 
 
-def test_thinker_mail_owes_as_any_authors_and_an_old_mark_counts_for_nothing():
-    """§6.2: owed branch 4 is gone. An old `[operator-words]` message from thinker
-    (open, as it parses) owes nothing, even from a pre-round daemon's payload that still
-    carries the key; thinker's once ask owes as a peer's or a director's does."""
+def test_archivist_mail_owes_as_any_authors_and_an_old_mark_counts_for_nothing():
+    """An old `[operator-words]` message from archivist (open, as it parses) owes
+    nothing, even from an older daemon's payload that still carries the key; archivist's
+    once ask owes as a peer's or a director's does."""
     from moxi_comms import owed
-    assert owed.owing_branch(msg(1, "thinker", operator_words=True, posture="open")) is None
-    assert owed.owing_branch(msg(1, "thinker", posture="open")) is None
-    assert owed.owing_branch(msg(1, "thinker")) == "peer"
-    assert owed.owing_branch(msg(1, "thinker"), ("thinker",)) == "director"
-    assert not hasattr(owed, "BRANCH_THINKER")
+    assert owed.owing_branch(msg(1, "archivist", operator_words=True, posture="open")) is None
+    assert owed.owing_branch(msg(1, "archivist", posture="open")) is None
+    assert owed.owing_branch(msg(1, "archivist")) == "peer"
+    assert owed.owing_branch(msg(1, "archivist"), ("archivist",)) == "director"
 
 
 def test_owing_branch_clause_one_no_reply_owes_nothing():
@@ -741,8 +733,7 @@ def test_owing_branch_clause_one_no_reply_owes_nothing():
 
 
 def test_an_old_speaker_message_from_the_operator_owes_and_one_from_a_peer_does_not():
-    """§6.0: owed branch 2 is gone. An old `[speaker]` line had no posture token and
-    parses as open: from the operator it owes, from a peer it owes nothing."""
+    """An old `[speaker]` line has no posture token and parses as open: from the operator it owes, from a peer it owes nothing."""
     from moxi_comms import owed
     posture = machine_line.parse("::to reviewer@proj-a [speaker]\nfyi").posture
     assert posture == "open"
@@ -866,25 +857,21 @@ def test_asking_back_with_once_pays_nothing(unit):
     assert "102" not in unit.ledger.payments
 
 
-@pytest.mark.parametrize("voice_up", [True, None, False])
-def test_only_a_message_to_operator_pays_an_operator_debt(unit, voice_up):
-    """[C6]: a message to thinker pays no operator debt, even from a pre-round daemon
-    whose answer still carries a thinker entry marked `voice_up`; one to `operator`
-    does."""
+def test_only_a_message_to_operator_pays_an_operator_debt(unit):
+    """A message to archivist pays no operator debt; one to `operator` does."""
     inject(unit, msg(101, "operator"))
     base = {"referents": {}, "awaiting": [], "undelivered": False, "floor": 0.0}
     unit.answers.raw = {**base, "sent": {
-        "operator": [], "thinker": [{"id": "102", "posture": "open", "voice_up": voice_up}]}}
+        "operator": [], "archivist": [{"id": "102", "posture": "open"}]}}
     assert unit.on_stop(dict(QUIET)).names == ("101",)
     unit.answers.raw = {**base, "sent": {"operator": [{"id": "103", "posture": "open"}]}}
     unit.on_stop(dict(QUIET))
     assert owed_ids(unit) == []
-    assert not hasattr(unit.ledger, "companion")
 
 
-def test_a_message_to_thinker_does_not_pay_a_director_debt(unit):
+def test_a_message_to_archivist_does_not_pay_a_director_debt(unit):
     inject(unit, msg(101))
-    unit.answers.sent = {"thinker": [{"id": "102", "posture": "open"}]}
+    unit.answers.sent = {"archivist": [{"id": "102", "posture": "open"}]}
     assert unit.on_stop(dict(QUIET)).names == ("101",)
 
 
@@ -1252,44 +1239,44 @@ def test_examples_a_once_ask_after_the_payment_owes(rig, pair):
     assert settle(rig, rev) == [ask.id]
 
 
-def test_examples_old_marked_thinker_mail_owes_nothing(rig, pair):
-    """§6.0: an `[operator-words]` line written before the round reaches reviewer and
-    owes nothing."""
+def test_examples_old_marked_archivist_mail_owes_nothing(rig, pair):
+    """An `[operator-words]` line an older comms wrote reaches reviewer and owes
+    nothing."""
     lead, rev = pair
-    rig.shim(slot=5, name="thinker", global_=True)
-    words = raw_post(rig, 5, "thinker", f"::to {R} [operator-words]\nhe asks: done?")
+    rig.shim(slot=5, name="archivist", global_=True)
+    words = raw_post(rig, 5, "archivist", f"::to {R} [operator-words]\nhe asks: done?")
     arrive(rev, words)
     assert owed_ids(rev) == []
 
 
-def test_examples_unmarked_thinker_mail_owes_nothing(rig, pair):
+def test_examples_unmarked_archivist_mail_owes_nothing(rig, pair):
     lead, rev = pair
-    arrive(rev, send(rig, R, "passed on", "--audience", "operator", who=THINKER))
+    arrive(rev, send(rig, R, "passed on", "--audience", "operator", who=ARCHIVIST))
     assert owed_ids(rev) == []
 
 
-def test_examples_the_voice_forwarder_owes_and_only_operator_is_paid_while_voice_is_up(
+def test_examples_operator_mail_owes_and_only_operator_pays_while_the_operator_is_bound(
         rig, pair, bind):
-    """[C6]: with his voice session up, a message to thinker still pays nothing."""
+    """With the operator bound, a message to archivist still pays nothing."""
     lead, rev = pair
-    bind_voice(bind)
+    bind_operator(bind)
     wait_until(lambda: "operator" in rig.daemon.bindings)
     status = raw_post(rig, 3, "operator", f"::to {R}\nstatus?")
     arrive(rev, status)
     assert owed_ids(rev) == [status.id]
     assert rev.ledger.debts[status.id].branch == "operator"
-    answer = send(rig, "thinker", "building, 10 minutes", who=REVIEWER)
+    answer = send(rig, "archivist", "building, 10 minutes", who=REVIEWER)
     assert settle(rig, rev, answer.id) == [status.id]
     to_him = send(rig, "operator", "building, 10 minutes", who=REVIEWER)
     assert settle(rig, rev, to_him.id) == []
 
 
-def test_examples_a_message_to_thinker_does_not_pay_the_operator_while_voice_is_down(
+def test_examples_a_message_to_archivist_does_not_pay_the_operator_while_it_is_unbound(
         rig, pair):
     lead, rev = pair
     status = raw_post(rig, 3, "operator", f"::to {R}\nstatus?")
     arrive(rev, status)
-    answer = send(rig, "thinker", "building", who=REVIEWER)
+    answer = send(rig, "archivist", "building", who=REVIEWER)
     assert settle(rig, rev, answer.id) == [status.id]
     to_him = send(rig, "operator", "building", who=REVIEWER)
     assert settle(rig, rev, to_him.id) == []
@@ -1377,7 +1364,7 @@ def test_the_quiet_rule_is_the_director_line_and_the_block_has_no_speaker_senten
     from moxi_comms.context import CONTEXT_BLOCK, DIRECTOR_LINE
     assert QUIET_RULE == DIRECTOR_LINE and QUIET_RULE not in CONTEXT_BLOCK
     assert "[speaker]" not in CONTEXT_BLOCK
-    assert len([s for s in CONTEXT_BLOCK.split(". ") if s.strip()]) == 7, "seven ([R42])"
+    assert len([s for s in CONTEXT_BLOCK.split(". ") if s.strip()]) == 7, "seven"
 
 
 # ------------------------------------------------------- the glossary entry
@@ -1388,17 +1375,13 @@ def test_the_owed_entry_and_its_aliases_resolve(form):
     assert glossary.lookup(form) is glossary.lookup("owed") is not None
 
 
-def test_the_owed_entry_says_what_the_design_says():
+def test_the_owed_entry_says_what_a_debt_is():
     from moxi_comms import glossary
     text = glossary.lookup("owed").text
     assert text.startswith("a reply you owe. A `[reply-once]` message owes one reply, "
                            "whoever sent it, unless it is marked `(unverified)`. So does "
                            "mail from the operator, unless it is marked `[no reply]` or "
                            "`[reply-optional]`.")
-    for gone in ("companion", "[operator-words]", "[speaker]"):
-        assert gone not in text, gone
-    for alias in ("operator-words", "[operator-words]"):
-        assert glossary.lookup(alias) is None, alias
     assert text.endswith("the wait ends when it answers.")
 
 
@@ -1417,29 +1400,16 @@ def test_the_shim_keeps_its_first_registrations_high_water_id(rig):
     assert int(rev.ledger.hwm) >= int(before)
 
 
-# ----------------------- no voice companion ([C6], [R62])
+# ------------------- only a message to operator pays an operator debt
 
 def test_the_unanswered_record_drops_only_on_a_message_to_operator(rig):
-    """daemon `_pays`: a message to thinker pays no operator debt."""
+    """daemon `_pays`: a message to archivist pays no operator debt."""
     from moxi_comms.daemon import SentEntry
 
-    assert not hasattr(rig.daemon, "companion")
-    to_thinker = SentEntry(id="200", author=R, tags=("thinker",), posture="open",
+    to_archivist = SentEntry(id="200", author=R, tags=("archivist",), posture="open",
                            reply_to=None, at=0.0, verified=True)
     to_him = SentEntry(id="201", author=R, tags=("operator",), posture="open",
                        reply_to=None, at=0.0, verified=True)
-    assert rig.daemon._pays(to_thinker, R, "operator", "100") is False
+    assert rig.daemon._pays(to_archivist, R, "operator", "100") is False
     assert rig.daemon._pays(to_him, R, "operator", "100") is True
 
-
-def test_a_policy_table_naming_the_voice_companion_is_refused_and_nothing_reads_it(env):
-    """[R62]: the retired key fails the load with a fix, and nothing reads it."""
-    from moxi_comms import config, owed, policy
-
-    write_config(None, '[policy]\nvoice_companion = "pal"\n')
-    with pytest.raises(config.ConfigError) as err:
-        config.load()
-    assert "voice_companion" in str(err.value)
-    assert not hasattr(policy, "voice_companion")
-    assert not hasattr(owed.Ledger(), "companion")
-    assert owed.owing_branch(msg(1, "pal", operator_words=True, posture="open")) is None

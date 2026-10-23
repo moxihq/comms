@@ -8,8 +8,6 @@ Which session a process is in is decided by a fake `/proc` (`FakeProc`): each se
 has a root pid, and a caller runs as a child pid of that root. `DirectConn` hands each
 frame to the holder's own `dispatch` as that pid, so the membership rule runs exactly as
 on a real socket.
-
-What was `tests/baton_kit.py`, without the pass (design §6.7, comms@refine-baton).
 """
 
 from __future__ import annotations
@@ -198,19 +196,19 @@ def wait_for(pred, timeout=3.0):
     return pred()
 
 
-# --------------------------------------------------------------------------- s113.1
+# ------------------------------------------------------------- a dropped register
 
 class RegisterDrop:
-    """A daemon arm's next register, with its connection dropped at a chosen point (s113.1).
+    """A daemon arm's next register, with its connection dropped at a chosen point.
     Patches `DaemonClient` in the one module the arm builds its client from; `arm(point)`
     applies to the next register only:
 
     * `before_answer`: the client is closed before the register goes out;
-    * `after_answer_restart`: the daemon answers and is stopped (b14-1 §4's method);
+    * `after_answer_restart`: the daemon answers and is stopped;
     * `after_answer_drop`: the daemon answers and the connection drops, the daemon
       staying up and dropping the binding;
-    * `after_answer_stop`: the daemon answers and `on_answer` runs (the arm's `stop()`,
-      s125.1) before the register returns, the connection left open.
+    * `after_answer_stop`: the daemon answers and `on_answer` runs (the arm's `stop()`)
+      before the register returns, the connection left open.
 
     After the answer the register returns only once the reader thread has run the
     arm's close handler, so the losing interleaving is the one under test.
@@ -270,7 +268,7 @@ class RegisterDrop:
                         drop.on_answer()
                         return resp
                     if point == "after_answer_restart":
-                        # the verifier's method (b14-1 §4): the daemon stops after it
+                        # the daemon stops after it
                         # answered, and the arm's main thread goes on only once the
                         # reader thread has run its close handler
                         daemon = drop.rig.daemon

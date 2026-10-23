@@ -125,6 +125,7 @@ def provision(gateway, db_path, *, slots: int = 3, standing=(), operator=("opera
             result.rooms[room] = channel_id
 
         # --- slots: one #names webhook each -------------------------------------
+        secret = directory.secret_column(conn)
         existing = set(directory.slot_ids(conn))
         for slot_id in range(1, slots + 1):
             if slot_id not in existing:
@@ -137,7 +138,7 @@ def provision(gateway, db_path, *, slots: int = 3, standing=(), operator=("opera
                     _keep(store, tokens.owner_for_slot(slot_id), cred.secret_id or key, cred)
                     conn.execute(
                         "INSERT INTO webhooks(webhook_id, slot_id, agent_name, agent_scope, "
-                        "channel_id, bws_secret_id, created_at) VALUES (?,?,NULL,NULL,?,?,?)",
+                        f"channel_id, {secret}, created_at) VALUES (?,?,NULL,NULL,?,?,?)",
                         (cred.webhook_id, slot_id, channel_id,
                          cred.secret_id or key, directory.now()),
                     )
@@ -234,8 +235,8 @@ def readiness(db_path, *, operator_hash, store) -> Readiness:
         slots = directory.slot_ids(conn)
         writer = directory.meta_get(conn, directory.META_WRITER)
         webhooks = conn.execute(
-            "SELECT slot_id, bws_secret_id FROM webhooks WHERE slot_id IS NOT NULL "
-            "ORDER BY slot_id").fetchall()
+            f"SELECT slot_id, {directory.secret_column(conn)} FROM webhooks "
+            "WHERE slot_id IS NOT NULL ORDER BY slot_id").fetchall()
     finally:
         conn.close()
     if not slots:
@@ -245,7 +246,7 @@ def readiness(db_path, *, operator_hash, store) -> Readiness:
     if store is None:
         return Readiness(COMPLETE, len(slots))
     missing = sorted({f"slot-{row['slot_id']}" for row in webhooks
-                      if row["bws_secret_id"] not in
+                      if directory.secret_of(row) not in
                       store.secret_ids(tokens.owner_for_slot(row["slot_id"]))},
                      key=lambda name: int(name.split("-")[1]))
     held = store.read_secret(tokens.owner_for_role(tokens.ROLE_OPERATOR),
@@ -391,6 +392,7 @@ def add_standing(gateway, conn, name: str, scope: str = GLOBAL, *, rooms=None,
                  "VALUES (?,?, 'active', ?, ?)", (name, scope, directory.now(), kind))
     if rooms is None:
         rooms = {r["name"]: r["channel_id"] for r in conn.execute("SELECT * FROM rooms")}
+    secret = directory.secret_column(conn)
     for room, channel_id in _names_only(rooms).items():
         if directory.agent_webhook(conn, name, scope, channel_id) is None:
             key = f"comms/{scope}/{name}/{room.lstrip('#')}"
@@ -398,7 +400,7 @@ def add_standing(gateway, conn, name: str, scope: str = GLOBAL, *, rooms=None,
             _keep(store, tokens.owner_for_standing(name, scope), cred.secret_id or key, cred)
             conn.execute(
                 "INSERT INTO webhooks(webhook_id, slot_id, agent_name, agent_scope, "
-                "channel_id, bws_secret_id, created_at) VALUES (?,NULL,?,?,?,?,?)",
+                f"channel_id, {secret}, created_at) VALUES (?,NULL,?,?,?,?,?)",
                 (cred.webhook_id, name, scope, channel_id,
                  cred.secret_id or key, directory.now()),
             )

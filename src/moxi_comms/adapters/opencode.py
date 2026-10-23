@@ -7,7 +7,7 @@ its liveness, like `moxi-comms-codex`. What it owns:
   * one `opencode serve` (`opencode_server`), spawned with the identity stamped into its
     environment, on loopback, with a per-launch password;
   * a new OpenCode session at every launch, whose id it records in STATE; it never
-    loads one an earlier launch recorded (operator ruling, 2026-10-08);
+    loads one an earlier launch recorded, as a Claude launch starts a new session;
   * the event stream of that server, read for the launch's session;
   * the window: `opencode attach <url> -s <session>` in the launcher's own terminal,
     where the person sits. Closing it stops the launcher and takes the identity offline.

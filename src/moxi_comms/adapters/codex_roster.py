@@ -147,7 +147,7 @@ class CodexAgent:
         agent among comms' agents, and is not told that it leads a team of its own.
 
         turns owns cwd, developer instructions and approval policy. This mapping omits
-        those keys so turns can lay it unread over each load under RULE T6.
+        those keys so turns can lay it, unread, over each load.
         """
         params: dict = {}
         config: dict = {"agents": {"enabled": False}}

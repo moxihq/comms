@@ -130,9 +130,6 @@ read = "start"
 [claude.channel]
 retired = "remove it: comms passes Claude Code no channel; turns' plugin delivers"
 
-[policy.voice_companion]
-retired = "remove it: reply enforcement exempts no identity"
-
 [policy.never_held]
 retired = "remove it: no sender is exempt from the cold-cache hold"
 

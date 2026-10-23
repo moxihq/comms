@@ -1,9 +1,8 @@
-"""[R30]: records written before comms/refine still parse (design §6.0).
+"""Old records still parse.
 
-comms/refine removed `--operator-words`, `--via phone` and `--speaker` (§6.1-§6.3), and
-with them the marks `[operator-words]`, `[via-phone]` and `[speaker]`. Records written
-before then carry them. [R29] keeps the three slots in line zero's grammar, matched and
-dropped, so such a line is still a machine line and not prose. Here: old line-zero
+`[operator-words]`, `[via-phone]` and `[speaker]` are marks an older comms wrote; read
+and ignored. Line zero's grammar keeps their three slots, matched and dropped, so a line
+that carries one is still a machine line and not prose. Here: old line-zero
 strings carrying each token, alone and together, parse with every other field intact;
 and `comms history`, `comms reply <old id>` and a boot rescan of a pending old message
 behave as they do for the same message without the mark.
@@ -33,7 +32,7 @@ REVIEWER = dict(slot=2, name="reviewer", scope="proj-a")
 P, R = "planner@proj-a", "reviewer@proj-a"
 
 TOKENS = ("operator-words", "via-phone", "speaker")
-#: Every non-empty set of the removed tokens: each alone, each pair, all three.
+#: Every non-empty set of the old tokens: each alone, each pair, all three.
 TOKEN_SETS = [set(c) for n in (1, 2, 3) for c in itertools.combinations(TOKENS, n)]
 TOKEN_IDS = ["+".join(sorted(c)) for c in TOKEN_SETS]
 REMOVED_KEYS = ("operator_words", "via_phone", "speaker")
@@ -41,7 +40,7 @@ REMOVED_KEYS = ("operator_words", "via_phone", "speaker")
 
 def old_line(tags, tokens, *, reply_to=None, audience=None, next_turn=False, cap=None,
              thread=None, posture=None):
-    """Line zero in the pre-round grammar, each token in its old slot:
+    """Line zero in the older grammar, each token in its old slot:
 
         ::to <tags> [re:<id>] [audience:<tag>] [operator-words] [via-phone] [next-turn]
              [cap:<n> | no-cap] [1 reply left | last reply] [speaker] [<posture>]
@@ -125,7 +124,7 @@ def test_nothing_new_writes_a_removed_mark():
 
 def raw_post(rig, slot, display, body):
     """Post a body exactly as given through a slot's webhook, wearing `display`: a
-    record as a pre-round comms wrote it."""
+    record as an older comms wrote it."""
     db = directory.connect(directory_db(), read_only=True)
     try:
         cred, _ = credential_for(rig.gateway, db,
@@ -199,7 +198,7 @@ def test_a_boot_rescan_routes_a_pending_old_message(rig, tokens):
         assert f"[{t}]" not in line
     assert line.endswith("[reply-once]")
     shim.on_turn_boundary()                         # inject
-    shim.on_turn_boundary()                         # complete: the row goes (§3.3.3)
+    shim.on_turn_boundary()                         # complete: the row goes
     assert wait_until(lambda: not queued(rig.daemon, R))
 
 

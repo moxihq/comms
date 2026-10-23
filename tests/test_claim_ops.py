@@ -1,6 +1,5 @@
 """The claim socket's two ops and who may call each, the membership rule, the claim file,
-the cursor's hold guard, and the adapter states' transitions. The pass's acts went with
-the baton pass (design §6.7); test_claim_server shows they are unknown ops now."""
+the cursor's hold guard, and the adapter states' transitions."""
 
 from __future__ import annotations
 
@@ -51,10 +50,10 @@ def test_a_self_root_admits_only_itself_and_may_hold_several_bindings():
     turn = proc.child(loop)
     stray = proc.child(loop)
     table = [("operator", [Root(loop, f"s{loop}", SELF)]),
-             ("thinker", [Root(loop, f"s{loop}", SELF), Root(turn, f"s{turn}", TREE)])]
-    assert sorted(sessions_of(loop, table, proc)) == ["operator", "thinker"]
-    assert sessions_of(turn, table, proc) == ["thinker"]
-    assert sessions_of(proc.child(turn), table, proc) == ["thinker"]
+             ("archivist", [Root(loop, f"s{loop}", SELF), Root(turn, f"s{turn}", TREE)])]
+    assert sorted(sessions_of(loop, table, proc)) == ["archivist", "operator"]
+    assert sessions_of(turn, table, proc) == ["archivist"]
+    assert sessions_of(proc.child(turn), table, proc) == ["archivist"]
     assert sessions_of(stray, table, proc) == []
     assert not inside(turn, "operator", table, proc)
 
@@ -95,7 +94,7 @@ def test_state_answers_anyone_and_carries_nothing_to_send_as(rig, world):
     answer = world.call(p, world.proc.spawn(), "state")
     assert answer["ok"] and answer["claim"] == SEAT
     assert world.call(p, n.verb_pid, "state")["claim"] == SEAT    # N's verb on P's socket
-    # [R36]: the trimmed answer, and nothing in it to send as
+    # the trimmed answer, and nothing in it to send as
     assert set(answer) == {"ok", "state", "kind", "key", "claim", "claim_name", "lost"}
 
 
@@ -144,7 +143,7 @@ def test_the_file_holds_the_recorded_keys_and_goes_with_a_clean_stop(rig, world)
         assert key in rec
     assert rec["state"] == "bound" and rec["claim"]["qualified"] == OTHER
     for key in ("for", "pass_from", "launch_argv", "retired", "contingent",
-                "contingent_to", "grants"):                  # the pass's, gone (§6.7)
+                "contingent_to", "grants"):                  # keys an older file carried
         assert key not in rec
     assert "temp" not in rec["claim"]
     assert oct(os.stat(claimfile.file_for(n.key)).st_mode)[-3:] == "600"
@@ -153,7 +152,7 @@ def test_the_file_holds_the_recorded_keys_and_goes_with_a_clean_stop(rig, world)
 
 
 def test_an_old_files_passing_state_loads_as_standby(rig, tmp_path):
-    """A claim file left by a process from before the pass went (design §6.7.2) may say
+    """A claim file left by an older process may say
     `state: passing`: it loads as `standby`, holding nothing and registering nothing."""
     h = ClaimHolder(kind="claude-shim", key="old-passing", keying="session",
                     socket_path=tmp_path / "c.sock", roots=[])

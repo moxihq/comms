@@ -205,9 +205,10 @@ ATTRIBUTED_FIELDS = ("message_id", "room", "author", "recipients", "resolved", "
 def attributed_message(message_id, *, socket_path=None, timeout: float = 10.0) -> dict | None:
     """`DaemonClient.attributed_message` on a connection of its own, closed after.
 
-    The read the notify service makes when an agent registers an item: it asks for the
-    message by the id `moxi comms send` printed, and takes the item's sender and text from
-    this answer, never from the registering process."""
+    The read for a program an agent hands a message to by its id, as when an agent
+    registers an item with it: the program asks for the message by the id `moxi comms
+    send` printed, and takes the item's sender and text from this answer, never from the
+    registering process."""
     client = DaemonClient(socket_path, timeout=timeout).connect()
     try:
         return client.attributed_message(message_id)

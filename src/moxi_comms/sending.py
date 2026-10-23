@@ -545,9 +545,9 @@ def _send(args, ctx: Context, *, tags, reply_to, channel_room, referent=None,
         return _send_resolved(args, ctx, sender=sender, operator_id=operator_id, tags=tags,
                               reply_to=reply_to, channel_room=channel_room, project=project,
                               referent=referent, author=author)
-    # The env path is closed: only a live session holding a name sends under it (the
-    # operator's ruling), so a process with no claim socket, outside the operator's
-    # lane, sends under no identity. A stamp is no live session
+    # The env path is closed: only a live session holding a name sends under it, so a
+    # process with no claim socket, outside the operator's lane, sends under no
+    # identity. A stamp is no live session
     # holding a name. `sender_from_env` is read only to NAME, in the refusal, the
     # identity the stamp claims; nothing is ever sent as it.
     stamped = _stamped_identity(ctx.env, project)

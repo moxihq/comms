@@ -32,7 +32,7 @@ def test_foreign_keys_are_live_not_inert():
         with pytest.raises(Exception):
             conn.execute(
                 "INSERT INTO webhooks(webhook_id, slot_id, agent_name, agent_scope, "
-                "channel_id, bws_secret_id, created_at) VALUES ('x',1,NULL,NULL,'nope','s','t')")
+                "channel_id, secret_id, created_at) VALUES ('x',1,NULL,NULL,'nope','s','t')")
             conn.commit()
     finally:
         conn.close()
@@ -46,7 +46,7 @@ def test_exactly_one_owner_kind():
         with pytest.raises(Exception):   # neither owner
             conn.execute(
                 "INSERT INTO webhooks(webhook_id, slot_id, agent_name, agent_scope, "
-                "channel_id, bws_secret_id, created_at) VALUES ('y',NULL,NULL,NULL,?,'s','t')",
+                "channel_id, secret_id, created_at) VALUES ('y',NULL,NULL,NULL,?,'s','t')",
                 (p.rooms[NAMES],))
     finally:
         conn.close()
@@ -112,7 +112,7 @@ def _old_directory(gw, *, slots=1):
 
 
 def test_an_old_directory_with_three_rooms_loads_and_mints_names_webhooks_only():
-    """[R28]: a standing row added later, with `rooms` read from the directory, and a slot
+    """A standing row added later, with `rooms` read from the directory, and a slot
     added by a later run each get one `#names` webhook, never one in every room row."""
     gw = MockGateway()
     p = _old_directory(gw, slots=1)
@@ -136,7 +136,7 @@ def test_an_old_directory_with_three_rooms_loads_and_mints_names_webhooks_only()
 
 
 def test_send_only_on_an_old_directory_mints_one_names_webhook(tmp_path):
-    """[R28], the send-only verb: it reads the `#names` row only and prints one webhook."""
+    """The send-only verb: it reads the `#names` row only and prints one webhook."""
     from moxi_comms.provision import send_only_main
 
     gw = MockGateway()
@@ -220,7 +220,7 @@ def local_rig(tmp_path):
 
 def test_every_minted_token_lands_in_its_own_holders_file(tmp_path):
     """Slot bundles to `owner_for_slot`, standing rows to their owner, the operator's to
-    the `operator` holder. The daemon holds no webhook ([F22])."""
+    the `operator` holder. The daemon holds no webhook."""
     from moxi_comms import tokens
 
     gw, store = local_rig(tmp_path)
@@ -244,7 +244,7 @@ def test_every_minted_token_lands_in_its_own_holders_file(tmp_path):
 def test_the_record_keeps_hashes_and_the_directory_keeps_pointers(tmp_path):
     """Not one minted token is anywhere but the holder's 0600 file. The record's webhook
     rows keep a SHA-256, `meta` keeps the operator's, and `directory.db`'s
-    `bws_secret_id` keeps the pointer it always was."""
+    `secret_id` keeps the pointer it always was."""
     from moxi_comms import tokens
 
     gw, store = local_rig(tmp_path)
@@ -269,7 +269,7 @@ def test_the_record_keeps_hashes_and_the_directory_keeps_pointers(tmp_path):
 
     conn = directory.connect(directory_db(), read_only=True)
     try:
-        pointers = [r["bws_secret_id"] for r in conn.execute("SELECT * FROM webhooks")]
+        pointers = [r["secret_id"] for r in conn.execute("SELECT * FROM webhooks")]
     finally:
         conn.close()
     assert all(p.startswith("comms/") for p in pointers)
@@ -376,10 +376,3 @@ def test_the_first_start_makes_what_provision_in_config_says(tmp_path):
             conn.close()
     finally:
         gw.close()
-
-
-def test_the_paste_verb_is_gone():
-    """The bws paste path went with bws: no `tokens` subcommand, no holder list."""
-    from moxi_comms import provision as prov
-
-    assert not hasattr(prov, "tokens_main") and not hasattr(prov, "holders")

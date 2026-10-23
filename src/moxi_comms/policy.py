@@ -15,11 +15,9 @@ Two rules name identities rather than kinds:
       labels = { "notifier@proj" = "the notifier, which only sends" }
 
 Neither is about who may send to a cold cache: no sender is exempt from the cold-cache
-hold, the operator's lane and every send-only identity included. The rules this module used to
-carry are retired: the never-held senders, the names a `--next-turn` send was refused to,
-and the identity reply enforcement exempted. A config file that still names `[policy]
-never_held`, `next_turn_refused` or `voice_companion` is refused with the fix (they are
-declared retired in `settings.toml`).
+hold, the operator's lane and every send-only identity included. Two keys an earlier comms
+read, `[policy] never_held` and `next_turn_refused`, are declared retired in
+`settings.toml`, so a config file that still names one is refused with the fix.
 """
 
 from __future__ import annotations

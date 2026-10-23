@@ -203,21 +203,21 @@ def gone(rig, qualified) -> bool:
     return wait_until(lambda: qualified not in rig.daemon.bindings)
 
 
-# ----------------------------------------------------------------- 1-3: restarts
+# ----------------------------------------------------------------- restarts
 
-def test_1_the_x1_race_a_returning_pinned_seat_gets_its_slot_back(rig, boot):
+def test_the_restart_race_a_returning_pinned_seat_gets_its_slot_back(rig, boot):
     """The restart race, replayed: a `next-free` binding registers first after the restart. Without
     keeps it would take slot 1, the pinned seat's slot."""
-    rig.shim(slot=1, name="lead", scope="core")
+    rig.shim(slot=1, name="captain", scope="proj-b")
     scout = rig.shim(name="scout", global_=True)
     assert scout.slot_id == 2
     boot()
     assert rig.shim(name="scout", global_=True).slot_id == 2, "its own keep, not slot 1"
-    assert rig.shim(slot=1, name="lead", scope="core").slot_id == 1
+    assert rig.shim(slot=1, name="captain", scope="proj-b").slot_id == 1
     assert rig.daemon.keeps == {}, "both keeps claimed"
 
 
-def test_2_a_double_restart_inside_the_window_carries_the_unclaimed_keep(rig, boot):
+def test_a_double_restart_inside_the_window_carries_the_unclaimed_keep(rig, boot):
     rig.shim(slot=1, name="a", scope="proj-a")
     rig.shim(name="b", scope="proj-a")                        # next-free: 2
     second = boot()
@@ -234,7 +234,7 @@ def test_2_a_double_restart_inside_the_window_carries_the_unclaimed_keep(rig, bo
     assert rig.shim(slot=1, name="a", scope="proj-a").slot_id == 1
 
 
-def test_3_a_crash_and_the_5s_auto_restart_keep_what_the_mark_last_said(rig, boot):
+def test_a_crash_and_the_5s_auto_restart_keep_what_the_mark_last_said(rig, boot):
     rig.shim(slot=1, name="a", scope="proj-a")
     rig.shim(name="b", scope="proj-a")                        # 2
     crash(rig)
@@ -257,9 +257,9 @@ def test_3_a_crash_and_the_5s_auto_restart_keep_what_the_mark_last_said(rig, boo
     assert rig.daemon.keeps[1].expires == rig.clock() + WINDOW, "a was live: a new window"
 
 
-# ----------------------------------------------------------------- 4-7: the pick
+# ----------------------------------------------------------------- the pick
 
-def test_4_next_free_skips_kept_slots_and_gives_one_up_only_when_nothing_else_is_free(
+def test_next_free_skips_kept_slots_and_gives_one_up_only_when_nothing_else_is_free(
         rig, boot, caplog):
     rig.shim(slot=1, name="a", scope="proj-a")
     rig.shim(slot=2, name="b", scope="proj-a")
@@ -284,18 +284,19 @@ def test_4_next_free_skips_kept_slots_and_gives_one_up_only_when_nothing_else_is
     assert keep_lines(caplog) == [], "and no keep line is written"
 
 
-def test_5_after_the_window_the_pick_is_todays_and_the_lapse_is_one_line(rig, boot, caplog):
+def test_after_the_window_the_pick_is_plain_next_free_and_the_lapse_is_one_line(
+        rig, boot, caplog):
     rig.shim(slot=1, name="a", scope="proj-a")
     rig.shim(slot=2, name="b", scope="proj-a")
     boot()
     rig.clock.advance(WINDOW + 1)
     caplog.set_level(logging.INFO, logger="comms.daemon")
-    assert rig.shim(name="x", scope="proj-a").slot_id == 1, "exactly today's pick"
+    assert rig.shim(name="x", scope="proj-a").slot_id == 1, "exactly the plain next-free pick"
     assert keep_lines(caplog) == ["slot keep(s) lapsed unclaimed: 1 a@proj-a, 2 b@proj-a"]
     assert rig.daemon.keeps == {} and kept_in(mark()) == {}
 
 
-def test_6_a_numbered_register_takes_a_kept_slot_and_the_keep_ends_as_taken(
+def test_a_numbered_register_takes_a_kept_slot_and_the_keep_ends_as_taken(
         rig, boot, caplog):
     rig.shim(slot=1, name="a", scope="proj-a")
     boot()
@@ -306,7 +307,7 @@ def test_6_a_numbered_register_takes_a_kept_slot_and_the_keep_ends_as_taken(
     assert live_in(mark()) == {1: "z@proj-a"} and kept_in(mark()) == {}
 
 
-def test_7_a_missing_mark_gives_no_keeps_and_says_so_once(rig, boot, caplog, tmp_path):
+def test_a_missing_mark_gives_no_keeps_and_says_so_once(rig, boot, caplog, tmp_path):
     caplog.set_level(logging.INFO, logger="comms.daemon")
     boot(keeps_path=tmp_path / "absent.json")
     assert rig.daemon.keeps == {}
@@ -314,7 +315,7 @@ def test_7_a_missing_mark_gives_no_keeps_and_says_so_once(rig, boot, caplog, tmp
     assert rig.shim(name="x", scope="proj-a").slot_id == 1
 
 
-def test_7_an_unparseable_or_wrong_shaped_mark_gives_no_keeps(rig, boot, caplog, tmp_path):
+def test_an_unparseable_or_wrong_shaped_mark_gives_no_keeps(rig, boot, caplog, tmp_path):
     caplog.set_level(logging.INFO, logger="comms.daemon")
     bad = tmp_path / "bad.json"
     bad.write_text("{not json")
@@ -328,7 +329,7 @@ def test_7_an_unparseable_or_wrong_shaped_mark_gives_no_keeps(rig, boot, caplog,
     assert rig.daemon.keeps == {}
 
 
-def test_7_conflicting_entries_are_all_dropped_and_only_they_are(rig, boot, caplog,
+def test_conflicting_entries_are_all_dropped_and_only_they_are(rig, boot, caplog,
                                                                  tmp_path):
     path = tmp_path / "conflict.json"
     path.write_text(json.dumps([
@@ -348,7 +349,7 @@ def test_7_conflicting_entries_are_all_dropped_and_only_they_are(rig, boot, capl
     assert len(drops) == 6, "each drop logged once"
 
 
-def test_7a_expiries_are_validated_and_clamped_to_one_window(rig, boot, tmp_path):
+def test_expiries_are_validated_and_clamped_to_one_window(rig, boot, tmp_path):
     """`NaN` and `Infinity` parse, and would keep a slot forever;
     a value far ahead (a wrong clock at boot) is clamped to boot + SLOT_KEEP."""
     path = tmp_path / "values.json"
@@ -366,7 +367,7 @@ def test_7a_expiries_are_validated_and_clamped_to_one_window(rig, boot, tmp_path
     assert all(math.isfinite(e["expires"]) for e in mark() if e["kind"] == "keep")
 
 
-def test_7b_a_clock_jump_only_shortens_a_keep(rig, boot):
+def test_a_clock_jump_only_shortens_a_keep(rig, boot):
     """The wall clock carries a keep across boots; the monotonic clock bounds it inside
     one. A backward step of the wall clock cannot stretch it; a forward one ends it."""
     rig.shim(slot=1, name="a", scope="proj-a")
@@ -389,7 +390,7 @@ def test_7b_a_clock_jump_only_shortens_a_keep(rig, boot):
     assert d.keeps == {}
 
 
-def test_7c_a_failed_write_does_not_stop_a_bind_and_the_next_write_repairs_it(
+def test_a_failed_write_does_not_stop_a_bind_and_the_next_write_repairs_it(
         rig, monkeypatch, caplog):
     """The file is then OLDER than memory (stale), not current.
     The next pick tries again, and a whole-file write from memory corrects it."""
@@ -410,7 +411,7 @@ def test_7c_a_failed_write_does_not_stop_a_bind_and_the_next_write_repairs_it(
     assert not rig.daemon._keeps_stale
 
 
-def test_7d_a_deregister_whose_write_failed_leaves_a_false_keep_that_lapses_harmlessly(
+def test_a_deregister_whose_write_failed_leaves_a_false_keep_that_lapses_harmlessly(
         rig, boot):
     a = rig.shim(slot=1, name="a", scope="proj-a")
     with pytest.MonkeyPatch.context() as mp:
@@ -427,7 +428,7 @@ def test_7d_a_deregister_whose_write_failed_leaves_a_false_keep_that_lapses_harm
     assert rig.daemon.keeps == {}, "and a takeover ends it"
 
 
-def test_7e_a_start_the_probe_refuses_writes_no_mark(rig, caplog):
+def test_a_start_the_probe_refuses_writes_no_mark(rig, caplog):
     """The load sits after the probe, and a refused start --
     and its `stop()` -- never touch the live daemon's mark."""
     rig.shim(slot=1, name="a", scope="proj-a")
@@ -440,10 +441,10 @@ def test_7e_a_start_the_probe_refuses_writes_no_mark(rig, caplog):
     assert live_in(mark()) == {1: "a@proj-a"}
 
 
-def test_7f_the_keep_clock_starts_at_the_listen_not_at_the_load(rig, boot):
+def test_the_keep_clock_starts_at_the_listen_not_at_the_load(rig, boot):
     """A boot that dies before listening writes nothing, so the
     next boot still finds the `live` entries and gives them a full window. The boot step
-    between the keep load and the listen is the queue load (design §3.11)."""
+    between the keep load and the listen is the queue load."""
     rig.shim(slot=1, name="a", scope="proj-a")
     rig.daemon.stop()
     before = slot_keeps().read_bytes()
@@ -463,9 +464,9 @@ def test_7f_the_keep_clock_starts_at_the_listen_not_at_the_load(rig, boot):
     assert rig.daemon.keeps[1].expires == rig.clock() + WINDOW
 
 
-# ------------------------------------------------------------------ 8: the freeze
+# ------------------------------------------------------------------ the freeze
 
-def test_8_the_freeze_turns_away_a_register_in_flight_and_keeps_the_mark(
+def test_the_freeze_turns_away_a_register_in_flight_and_keeps_the_mark(
         rig, monkeypatch, caplog):
     caplog.set_level(logging.INFO, logger="comms.daemon")
     rig.shim(slot=1, name="a", scope="proj-a")
@@ -502,9 +503,9 @@ def test_8_the_freeze_turns_away_a_register_in_flight_and_keeps_the_mark(
     assert not [r for r in caplog.records if r.exc_info], "no traceback for a stop"
 
 
-# -------------------------------------------------------- 9: the refused-register line
+# -------------------------------------------------------- the refused-register line
 
-def test_9_a_refused_register_is_one_journal_line_naming_what_was_asked(rig, caplog):
+def test_a_refused_register_is_one_journal_line_naming_what_was_asked(rig, caplog):
     rig.shim(slot=1, name="planner", scope="proj-a")
     caplog.set_level(logging.INFO, logger="comms.daemon")
     with pytest.raises(DaemonError):
@@ -522,13 +523,13 @@ def test_9_a_refused_register_is_one_journal_line_naming_what_was_asked(rig, cap
         "slot 7 is not provisioned"]
 
 
-# ------------------------------------------------ 10-14: the shim
+# ------------------------------------------------ the shim
 
-def test_10_a_has_held_seat_whose_slot_was_taken_falls_back_at_once_on_reconnect(
+def test_a_has_held_seat_whose_slot_was_taken_falls_back_at_once_on_reconnect(
         rig, boot, monkeypatch):
     seeds = gated(monkeypatch)
-    lead = rig.shim(slot=1, name="lead", scope="core", autoreconnect=True)
-    rig.shim(slot=2, name="peer", scope="core")
+    lead = rig.shim(slot=1, name="captain", scope="proj-b", autoreconnect=True)
+    rig.shim(slot=2, name="peer", scope="proj-b")
     rig.daemon.stop()
     assert wait_until(lambda: seeds and seeds[0].waits >= 1)
     boot()
@@ -537,7 +538,7 @@ def test_10_a_has_held_seat_whose_slot_was_taken_falls_back_at_once_on_reconnect
     assert rig.daemon.bindings["scout"].slot_id == 1
 
     seeds[0].step()
-    assert wait_until(lambda: lead.identity == "lead@core" and not lead.offline)
+    assert wait_until(lambda: lead.identity == "captain@proj-b" and not lead.offline)
     assert lead.slot_id == 2, "the lowest free unkept slot"
     assert seeds[0].waits == 1, "no backoff step between the refusal and the retry"
     reason = "slot 1 is already bound by scout"
@@ -551,13 +552,13 @@ def test_10_a_has_held_seat_whose_slot_was_taken_falls_back_at_once_on_reconnect
     rig.daemon.stop()
     assert wait_until(lambda: len(seeds) >= 2 and seeds[1].waits >= 1)
     boot()
-    assert rig.shim(name="third", scope="core").slot_id == 3, "1 and 2 are both kept"
+    assert rig.shim(name="third", scope="proj-b").slot_id == 3, "1 and 2 are both kept"
     seeds[1].step()
     assert wait_until(lambda: not lead.offline)
     assert lead.slot_id == 2
 
 
-def test_11_a_has_held_shim_refused_for_its_own_name_still_stops_and_says_why(
+def test_a_has_held_shim_refused_for_its_own_name_still_stops_and_says_why(
         rig, boot, monkeypatch):
     seeds = gated(monkeypatch)
     shim = rig.shim(slot=2, name="reviewer", scope="proj-a", autoreconnect=True)
@@ -577,19 +578,19 @@ def test_11_a_has_held_shim_refused_for_its_own_name_still_stops_and_says_why(
     assert status["slot_asked"] is None, "a name refusal is no slot fallback"
 
 
-def test_12_a_never_held_shim_refused_for_a_slot_falls_back_not_waits(
+def test_a_never_held_shim_refused_for_a_slot_falls_back_not_waits(
         rig, boot, monkeypatch):
     seeds = gated(monkeypatch)
     rig.daemon.stop()
-    with launched(rig, slot=1, name="lead", scope="core",
+    with launched(rig, slot=1, name="captain", scope="proj-b",
                   backoff=None) as launch:
         shim = launch.shim
         assert wait_until(lambda: seeds and seeds[0].waits >= 1)
         assert shim.ever_bound is False
         boot(stop=False)
-        rig.shim(slot=1, name="holder", scope="core")
+        rig.shim(slot=1, name="holder", scope="proj-b")
         seeds[0].step()
-        assert wait_until(lambda: shim.identity == "lead@core")
+        assert wait_until(lambda: shim.identity == "captain@proj-b")
         assert shim.slot_id == 2
         assert REFUSED_WAITING not in shim.statuses
         assert any(s.startswith("comms online on another bundle") for s in shim.statuses)
@@ -597,7 +598,7 @@ def test_12_a_never_held_shim_refused_for_a_slot_falls_back_not_waits(
     assert launch.code == 0
 
 
-def test_12_a_never_held_shim_refused_for_its_name_still_waits(rig, boot, monkeypatch):
+def test_a_never_held_shim_refused_for_its_name_still_waits(rig, boot, monkeypatch):
     seeds = gated(monkeypatch)
     rig.daemon.stop()
     with launched(rig, slot=2, name="reviewer", scope="proj-a",
@@ -613,7 +614,7 @@ def test_12_a_never_held_shim_refused_for_its_name_still_waits(rig, boot, monkey
     assert launch.code == 0
 
 
-def test_13_an_unexpected_exception_in_connect_is_survived(rig, boot, monkeypatch, caplog):
+def test_an_unexpected_exception_in_connect_is_survived(rig, boot, monkeypatch, caplog):
     seeds = gated(monkeypatch)
     shim = rig.shim(slot=2, name="reviewer", scope="proj-a", autoreconnect=True)
     rig.daemon.stop()
@@ -644,7 +645,7 @@ def test_13_an_unexpected_exception_in_connect_is_survived(rig, boot, monkeypatc
     assert shim.statuses.count(expected) == 1
 
 
-def test_13_a_finite_backoff_that_runs_dry_falls_back_to_the_real_one(rig, boot,
+def test_a_finite_backoff_that_runs_dry_falls_back_to_the_real_one(rig, boot,
                                                                       monkeypatch):
     shim = rig.shim(slot=2, name="reviewer", scope="proj-a", autoreconnect=True,
                     backoff=iter([0.01]))
@@ -654,7 +655,7 @@ def test_13_a_finite_backoff_that_runs_dry_falls_back_to_the_real_one(rig, boot,
     assert shim._supervisor.is_alive()
 
 
-def test_14_a_shim_without_a_supervisor_and_a_stopped_one_answer_honestly(rig):
+def test_a_shim_without_a_supervisor_and_a_stopped_one_answer_honestly(rig):
     plain = rig.shim(slot=2, name="reviewer", scope="proj-a")
     assert status_of(plain)["supervisor"] == "none"
     supervised = rig.shim(slot=3, name="curator", scope="proj-a", autoreconnect=True)
@@ -665,7 +666,7 @@ def test_14_a_shim_without_a_supervisor_and_a_stopped_one_answer_honestly(rig):
     assert status_of(supervised)["ended_because"] == "stopped"
 
 
-# ------------------------------------------------------------------- 15: codex
+# ------------------------------------------------------------------- codex
 
 def _flaky_daemon_connect(adapter):
     calls = []
@@ -680,7 +681,7 @@ def _flaky_daemon_connect(adapter):
     return calls
 
 
-def test_15_the_codex_supervisor_survives_an_unexpected_exception(rig, tmp_path):
+def test_the_codex_supervisor_survives_an_unexpected_exception(rig, tmp_path):
     from moxi_comms import codex_threads
     from moxi_comms.adapters.codex import CodexAdapter
     from moxi_comms.adapters.codex_roster import CodexAgent
@@ -704,9 +705,9 @@ def test_15_the_codex_supervisor_survives_an_unexpected_exception(rig, tmp_path)
         t.join(2.0)
 
 
-# ------------------------------------------------ 17: keeps where people look
+# ------------------------------------------------ keeps where people look
 
-def test_17_keeps_show_in_the_agents_query_and_the_seats_view_only(rig, boot):
+def test_keeps_show_in_the_agents_query_and_the_seats_view_only(rig, boot):
     rig.shim(slot=1, name="a", scope="proj-a")
     boot()
     rig.clock.advance(30)
@@ -726,12 +727,12 @@ def test_17_keeps_show_in_the_agents_query_and_the_seats_view_only(rig, boot):
 
 # ------------------------------------------- the first bind
 
-def test_18_a_launch_pinned_to_a_held_slot_binds_next_free_and_serves(rig):
+def test_a_launch_pinned_to_a_held_slot_binds_next_free_and_serves(rig):
     rig.shim(slot=1, name="scout", global_=True)
-    with launched(rig, slot=1, name="lead",
-                  scope="core") as launch:
+    with launched(rig, slot=1, name="captain",
+                  scope="proj-b") as launch:
         shim = launch.shim
-        assert wait_until(lambda: shim.identity == "lead@core")
+        assert wait_until(lambda: shim.identity == "captain@proj-b")
         assert shim.slot_id == 2
         assert shim.statuses == [SLOT_MOVED.format(
             asked=1, reason="slot 1 is already bound by scout", got=2)]
@@ -741,18 +742,18 @@ def test_18_a_launch_pinned_to_a_held_slot_binds_next_free_and_serves(rig):
     assert launch.code == 0
 
 
-def test_18_a_launch_pinned_to_an_unprovisioned_slot_does_the_same(rig):
-    with launched(rig, slot=99, name="lead",
-                  scope="core") as launch:
+def test_a_launch_pinned_to_an_unprovisioned_slot_does_the_same(rig):
+    with launched(rig, slot=99, name="captain",
+                  scope="proj-b") as launch:
         shim = launch.shim
-        assert wait_until(lambda: shim.identity == "lead@core")
+        assert wait_until(lambda: shim.identity == "captain@proj-b")
         assert shim.slot_id == 1
         assert shim.slot_refused_by == "slot 99 is not provisioned"
         assert launch.running
     assert launch.code == 0
 
 
-def test_19_the_fallback_takes_an_unkept_slot_before_a_kept_one(rig, boot):
+def test_the_fallback_takes_an_unkept_slot_before_a_kept_one(rig, boot):
     rig.shim(slot=2, name="other", scope="proj-a")
     boot()
     rig.shim(slot=1, name="x", scope="proj-a")
@@ -761,7 +762,7 @@ def test_19_the_fallback_takes_an_unkept_slot_before_a_kept_one(rig, boot):
     assert rig.daemon.keeps[2].qualified == "other@proj-a"
 
 
-def test_19_with_every_free_slot_kept_the_fallback_gives_one_up(rig, boot, caplog):
+def test_with_every_free_slot_kept_the_fallback_gives_one_up(rig, boot, caplog):
     for n in range(1, 7):
         rig.shim(slot=n, name=f"n{n}", scope="proj-a")
     boot()
@@ -775,9 +776,9 @@ def test_19_with_every_free_slot_kept_the_fallback_gives_one_up(rig, boot, caplo
         "slot keep for n2@proj-a on slot 2 ended: given up to a@proj-a (no other slot free)"]
 
 
-def test_20_a_first_bind_name_refusal_waits_for_the_name(rig, capsys):
+def test_a_first_bind_name_refusal_waits_for_the_name(rig, capsys):
     """A launch into a name another session holds waits for it and cannot send
-    meanwhile (operator ruling, 2026-10-07); it no longer exits."""
+    meanwhile; it does not exit."""
     rig.shim(slot=1, name="reviewer", scope="proj-a")
     with launched(rig, slot=2, name="reviewer",
                   scope="proj-a") as launch:
@@ -786,20 +787,20 @@ def test_20_a_first_bind_name_refusal_waits_for_the_name(rig, capsys):
     assert REFUSED_PREFIX not in capsys.readouterr().err
 
 
-def test_20_a_fallback_refused_no_free_slot_exits_at_first_bind(rig, capsys):
+def test_a_fallback_refused_no_free_slot_exits_at_first_bind(rig, capsys):
     for n in range(1, 7):
         rig.shim(slot=n, name=f"n{n}", scope="proj-a")
-    with launched(rig, slot=1, name="lead",
-                  scope="core") as launch:
+    with launched(rig, slot=1, name="captain",
+                  scope="proj-b") as launch:
         assert wait_until(lambda: launch.code is not None)
     assert launch.code == claude_shim.EXIT_REFUSED
     err = capsys.readouterr().err
     assert REFUSED_PREFIX in err and "no free slot" in err
 
 
-def test_20_on_reconnect_no_free_slot_retries_on_the_backoff(rig, boot, monkeypatch):
+def test_on_reconnect_no_free_slot_retries_on_the_backoff(rig, boot, monkeypatch):
     seeds = gated(monkeypatch)
-    lead = rig.shim(slot=1, name="lead", scope="core", autoreconnect=True)
+    lead = rig.shim(slot=1, name="captain", scope="proj-b", autoreconnect=True)
     rig.daemon.stop()
     assert wait_until(lambda: seeds and seeds[0].waits >= 1)
     boot()
@@ -820,7 +821,7 @@ def test_20_on_reconnect_no_free_slot_retries_on_the_backoff(rig, boot, monkeypa
     assert lead.slot_id == 6 and lead.slot_asked == 1
 
 
-def test_22_a_transient_at_first_bind_still_exits_the_declared_gap(rig, monkeypatch):
+def test_a_transient_at_first_bind_still_exits_the_declared_gap(rig, monkeypatch):
     monkeypatch.setattr(rig.daemon, "_high_water_mark",
                         lambda: ("0", RuntimeError("429 Too Many Requests")))
     with launched(rig, slot=2, name="reviewer",
@@ -830,7 +831,7 @@ def test_22_a_transient_at_first_bind_still_exits_the_declared_gap(rig, monkeypa
         "unchanged; a later fix shows up as this test changing"
 
 
-# ------------------------------------------------ 21: the bundle follows the binding
+# ------------------------------------------------ the bundle follows the binding
 
 def _moved_planner(rig):
     """planner, stamped slot 1 at launch, bound on another slot after a fallback."""
@@ -842,7 +843,7 @@ def _moved_planner(rig):
     return planner
 
 
-def test_21_a_moved_session_posts_on_the_slot_it_is_bound_on_verified(rig):
+def test_a_moved_session_posts_on_the_slot_it_is_bound_on_verified(rig):
     _moved_planner(rig)
     code, out = rig.cli(["send", "--posture", "none", "reviewer@proj-a", "hi"], slot=1, name="planner",
                         scope="proj-a")
@@ -855,7 +856,7 @@ def test_21_a_moved_session_posts_on_the_slot_it_is_bound_on_verified(rig):
     assert (replayed.qualified, replayed.attribution) == ("planner@proj-a", "verified")
 
 
-def test_21_with_the_name_unbound_an_offline_claim_posts_on_its_slot(rig):
+def test_with_the_name_unbound_an_offline_claim_posts_on_its_slot(rig):
     """No adapter binds planner; the rig sends from a session holding its claim offline
     on slot 1 (what a stamped send spent before the env path closed)."""
     rig.shim(slot=2, name="reviewer", scope="proj-a")
@@ -865,7 +866,7 @@ def test_21_with_the_name_unbound_an_offline_claim_posts_on_its_slot(rig):
     assert posted.author_id == rig.slot_webhook_id(1)
 
 
-def test_21_a_malformed_stamp_is_refused_before_any_lookup(rig, monkeypatch):
+def test_a_malformed_stamp_is_refused_before_any_lookup(rig, monkeypatch):
     asked = []
     real = DaemonClient.query
 
@@ -883,7 +884,7 @@ def test_21_a_malformed_stamp_is_refused_before_any_lookup(rig, monkeypatch):
     assert rig.gateway.history(rig.names_channel) == []
 
 
-def test_21a_a_bound_claim_posts_on_its_slot_with_no_lookup_to_fail(rig, monkeypatch):
+def test_a_bound_claim_posts_on_its_slot_with_no_lookup_to_fail(rig, monkeypatch):
     """The env path's binding lookup is gone with it: a session sends as its claim, which
     carries the slot the daemon bound it on, so a lookup that would fail is never made
     and the post goes out verified on that slot."""
@@ -904,7 +905,7 @@ def test_21a_a_bound_claim_posts_on_its_slot_with_no_lookup_to_fail(rig, monkeyp
     assert rig.daemon.attribute(posted, live=True).attribution == "verified"
 
 
-def test_21b_a_post_in_the_reconnect_backoff_goes_out_on_the_claims_slot(rig, boot,
+def test_a_post_in_the_reconnect_backoff_goes_out_on_the_claims_slot(rig, boot,
                                                                          monkeypatch):
     """While the shim is still in its backoff after the daemon returns, the session is
     unbound and its claim `offline`: its post goes out as the claim on the claim's own

@@ -154,6 +154,11 @@ meets.
 | `moxi-comms-daemon` | the daemon, in the foreground |
 | `moxi-comms-provision` | provision more slots or standing identities |
 
+`explain`, `doctor`, `moxi comms cache` (how cold each agent's prompt cache is, for the
+callers `[policy] cache_callers` names) and `moxi comms owner <session-id>` (which
+identity owns a session, for a program that nudges idle sessions; left out of the help
+list) are read-only: they ask the daemon or read local files and post nothing.
+
 Every new `moxi comms send` says what it wants back with `--posture`: `none` (no reply; a
 reply to it is refused), `optional` (a reply only if the recipient has something to add;
 nothing is owed), `once` (a single answer, through `moxi comms reply`) or `open` (a
